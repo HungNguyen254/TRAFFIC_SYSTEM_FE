@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bản đồ giao thông – Tắc Đường AI</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet: CSS phải nằm trước JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Dùng lại style chung (header, màu sắc) rồi thêm style riêng cho trang bản đồ -->
+   <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" crossorigin href="../css/Map.css">
+</head>
+<body class="map-page">
+
+  <!-- ===== ĐẦU TRANG ===== -->
+  <header class="site-header">
+    <a class="logo" href="main.html">Tắc Đường<span>AI</span></a>
+    <nav class="menu">
+      <a href="main.html#forecast">Dự báo</a>
+      <a href="Map.html" aria-current="page">Bản đồ</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+
+    <!-- ===== KHU BẢN ĐỒ ===== -->
+    <section class="map-area" aria-label="Bản đồ giao thông">
+      <div id="map-canvas"></div>
+
+      <!-- Lớp phủ hiển thị trạng thái đang tải / lỗi -->
+      <div id="status-overlay" class="status-overlay" role="status" aria-live="polite">
+        <div class="spinner" id="spinner"></div>
+        <p id="status-text">Đang tải bản đồ…</p>
+        <button class="btn-secondary" id="retry-btn" type="button" hidden>Thử lại</button>
+      </div>
+
+      <!-- Cảnh báo nhỏ khi ảnh bản đồ không tải được -->
+      <div id="tile-warning" class="tile-warning" role="alert" hidden>
+        Không tải được ảnh nền bản đồ. Hãy kiểm tra kết nối mạng, và mở trang qua máy chủ cục bộ thay vì file://.
+      </div>
+    </section>
+
+    <!-- ===== PANEL THÔNG TIN ===== -->
+    <aside class="panel" aria-label="Thông tin điểm nóng">
+      <h1>Điểm nóng ùn tắc</h1>
+
+      <label class="time-label" for="time-select">Khung giờ dự báo</label>
+      <select id="time-select">
+        <option value="0">Sáng 7:00</option>
+        <option value="1">Trưa 12:00</option>
+        <option value="2">Chiều 17:30</option>
+        <option value="3">Tối 21:00</option>
+      </select>
+
+      <div class="legend">
+        <span class="legend-dot green"></span> Thông thoáng
+        <span class="legend-dot yellow"></span> Đông
+        <span class="legend-dot red"></span> Tắc nghẽn
+      </div>
+
+      <p class="summary" id="summary">Chưa có dữ liệu.</p>
+
+      <ul class="list" id="list"></ul>
+
+      <div class="detail" id="detail">
+        <p>Chọn một điểm trên bản đồ hoặc trong danh sách để xem chi tiết.</p>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Leaflet JS, sau đó đến script của trang -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" crossorigin src="../js/Map.js"></script>
+
+</body>
+</html>

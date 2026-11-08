@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dự báo tắc đường thông minh – Hà Nội</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" crossorigin href="../css/main.css">
+</head>
+<body>
+
+  <!-- ===== THANH ĐẦU TRANG ===== -->
+  <header class="site-header">
+    <a class="logo" href="#home">Tắc Đường<span>AI</span></a>
+    <nav class="menu">
+      <a href="#forecast">Dự báo</a>
+      <a href="#hotspots">Điểm nóng</a>
+      <a href="#how-it-works">Cách hoạt động</a>
+      <a href="Map.html">Bản đồ</a>
+      <a href="#connect">Kết nối</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- ===== GIỚI THIỆU ===== -->
+    <section class="hero" id="home">
+      <h1>Biết trước đường nào tắc, chọn giờ đi hợp lý hơn</h1>
+      <p>Hệ thống AI phân tích dữ liệu giao thông các tuyến đường chính ở Hà Nội và dự báo mức độ ùn tắc theo từng khung giờ trong ngày.</p>
+      <a class="btn" href="#forecast">Xem dự báo ngay</a>
+    </section>
+
+    <!-- ===== BẢNG DỰ BÁO (đổi khung giờ bằng CSS, không dùng JavaScript) ===== -->
+    <section class="section" id="forecast">
+      <h2>Dự báo theo khung giờ</h2>
+      <p class="section-desc">Chọn một khung giờ để xem mức độ ùn tắc dự kiến trên từng tuyến.</p>
+
+      <div class="forecast">
+
+        <!-- 4 nút radio (ẩn đi) dùng để chọn khung giờ -->
+        <input type="radio" name="time-slot" id="time-1" checked>
+        <input type="radio" name="time-slot" id="time-2">
+        <input type="radio" name="time-slot" id="time-3">
+        <input type="radio" name="time-slot" id="time-4">
+
+        <!-- Các nhãn bấm vào để chọn khung giờ -->
+        <div class="tab">
+          <label for="time-1">Sáng 7:00</label>
+          <label for="time-2">Trưa 12:00</label>
+          <label for="time-3">Chiều 17:30</label>
+          <label for="time-4">Tối 21:00</label>
+        </div>
+
+        <!-- Chú thích màu -->
+        <div class="legend">
+          <span class="legend-dot green"></span> Thông thoáng
+          <span class="legend-dot yellow"></span> Đông
+          <span class="legend-dot red"></span> Tắc nghẽn
+        </div>
+
+        <!-- Bảng các tuyến đường -->
+        <div class="forecast-table">
+
+          <div class="row">
+            <div class="route"><strong>Đường Láng</strong><small>Ngã Tư Sở → Cầu Giấy</small></div>
+            <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 88%;"></div></div><span>88% · Tắc nghẽn</span></div>
+            <div class="level slot-2 yellow"><div class="bar-track"><div class="bar" style="width: 45%;"></div></div><span>45% · Đông</span></div>
+            <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 92%;"></div></div><span>92% · Tắc nghẽn</span></div>
+            <div class="level slot-4 green"><div class="bar-track"><div class="bar" style="width: 25%;"></div></div><span>25% · Thông thoáng</span></div>
+          </div>
+
+          <div class="row">
+            <div class="route"><strong>Cầu Giấy – Xuân Thủy</strong><small>Ngã tư Cầu Giấy → Đại học Quốc gia</small></div>
+            <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 82%;"></div></div><span>82% · Tắc nghẽn</span></div>
+            <div class="level slot-2 green"><div class="bar-track"><div class="bar" style="width: 38%;"></div></div><span>38% · Thông thoáng</span></div>
+            <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 85%;"></div></div><span>85% · Tắc nghẽn</span></div>
+            <div class="level slot-4 green"><div class="bar-track"><div class="bar" style="width: 30%;"></div></div><span>30% · Thông thoáng</span></div>
+          </div>
+
+          <div class="row">
+            <div class="route"><strong>Nguyễn Trãi</strong><small>Ngã Tư Sở → Hà Đông</small></div>
+            <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 74%;"></div></div><span>74% · Tắc nghẽn</span></div>
+            <div class="level slot-2 yellow"><div class="bar-track"><div class="bar" style="width: 42%;"></div></div><span>42% · Đông</span></div>
+            <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 90%;"></div></div><span>90% · Tắc nghẽn</span></div>
+            <div class="level slot-4 green"><div class="bar-track"><div class="bar" style="width: 28%;"></div></div><span>28% · Thông thoáng</span></div>
+          </div>
+
+          <div class="row">
+            <div class="route"><strong>Vành đai 3</strong><small>Mai Dịch → Pháp Vân</small></div>
+            <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 90%;"></div></div><span>90% · Tắc nghẽn</span></div>
+            <div class="level slot-2 yellow"><div class="bar-track"><div class="bar" style="width: 55%;"></div></div><span>55% · Đông</span></div>
+            <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 94%;"></div></div><span>94% · Tắc nghẽn</span></div>
+            <div class="level slot-4 yellow"><div class="bar-track"><div class="bar" style="width: 40%;"></div></div><span>40% · Đông</span></div>
+          </div>
+
+          <div class="row">
+            <div class="route"><strong>Phạm Văn Đồng</strong><small>Hoàng Quốc Việt → Xuân Đỉnh</small></div>
+            <div class="level slot-1 yellow"><div class="bar-track"><div class="bar" style="width: 65%;"></div></div><span>65% · Đông</span></div>
+            <div class="level slot-2 green"><div class="bar-track"><div class="bar" style="width: 30%;"></div></div><span>30% · Thông thoáng</span></div>
+            <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 78%;"></div></div><span>78% · Tắc nghẽn</span></div>
+            <div class="level slot-4 green"><div class="bar-track"><div class="bar" style="width: 20%;"></div></div><span>20% · Thông thoáng</span></div>
+          </div>
+
+        </div>
+
+        <!-- Gợi ý của AI theo từng khung giờ -->
+        <div class="tips">
+          <div class="tip-1"><strong>Gợi ý của AI:</strong> Giờ cao điểm sáng. Nên xuất phát trước 6:30 hoặc sau 8:45, ưu tiên các đường nhánh thay cho Vành đai 3.</div>
+          <div class="tip-2"><strong>Gợi ý của AI:</strong> Đường khá thoáng. Đây là lúc phù hợp để di chuyển các quãng đường dài qua nhiều quận.</div>
+          <div class="tip-3"><strong>Gợi ý của AI:</strong> Cao điểm chiều, tắc nặng gần như mọi tuyến. Nếu được, hãy lùi giờ về sau 19:30.</div>
+          <div class="tip-4"><strong>Gợi ý của AI:</strong> Giao thông thông thoáng, thời gian di chuyển gần như tối thiểu.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== ĐIỂM NÓNG ===== -->
+    <section class="section section-gray" id="hotspots">
+      <h2>Điểm nóng ùn tắc hôm nay</h2>
+      <p class="section-desc">Những nút giao thường xuyên vượt ngưỡng ùn tắc trong tuần qua.</p>
+
+      <div class="grid">
+        <article class="card">
+          <h3>Ngã Tư Sở</h3>
+          <p class="level-label text-red">Tắc nghẽn nặng</p>
+          <p>Dòng xe từ Nguyễn Trãi, Láng và Trường Chinh đổ về cùng lúc vào khung 17:00–19:00.</p>
+        </article>
+        <article class="card">
+          <h3>Nút giao Mai Dịch</h3>
+          <p class="level-label text-red">Tắc nghẽn nặng</p>
+          <p>Xe cửa ngõ phía Tây hội tụ với xe đi Vành đai 3 vào giờ cao điểm sáng.</p>
+        </article>
+        <article class="card">
+          <h3>Ngã tư Cầu Giấy</h3>
+          <p class="level-label text-yellow">Đông</p>
+          <p>Ùn từng đợt, thường giải tỏa sau khoảng 20 phút nếu không có sự cố.</p>
+        </article>
+        <article class="card">
+          <h3>Đường Phạm Hùng</h3>
+          <p class="level-label text-green">Thông thoáng</p>
+          <p>Lưu lượng ổn định, phù hợp làm tuyến thay thế khi các tuyến lân cận bị tắc.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===== CÁCH HOẠT ĐỘNG ===== -->
+    <section class="section" id="how-it-works">
+      <h2>AI dự báo như thế nào?</h2>
+      <p class="section-desc">Ba bước từ dữ liệu thô đến lời khuyên cho chuyến đi của bạn.</p>
+
+      <ol class="steps">
+        <li>
+          <h3>Thu thập dữ liệu</h3>
+          <p>Hệ thống tổng hợp tốc độ xe, mật độ phương tiện, thời tiết và lịch sự kiện trên từng tuyến.</p>
+        </li>
+        <li>
+          <h3>Mô hình AI phân tích</h3>
+          <p>Mô hình học từ quy luật lặp lại theo giờ, theo ngày trong tuần và theo mùa để dự đoán mức ùn tắc.</p>
+        </li>
+        <li>
+          <h3>Đưa ra gợi ý</h3>
+          <p>Kết quả được đổi thành mức màu dễ hiểu cùng khuyến nghị giờ đi và tuyến thay thế.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ===== KẾT NỐI BACKEND (từ file HTML cũ) ===== -->
+    <section class="section" id="connect">
+      <h2>Hệ thống Quản lý Giao thông</h2>
+      <p class="section-desc">Kiểm tra kết nối giữa trang web và Backend đang chạy trên máy của bạn.</p>
+
+      <button class="btn" id="fetch-btn" type="button">Lấy dữ liệu từ Backend</button>
+      <p class="result" id="output" aria-live="polite"></p>
+    </section>
+
+  </main>
+
+  <!-- ===== CHÂN TRANG ===== -->
+  <footer class="site-footer">
+    <p>Tắc Đường AI – Bài tập thực tập. Dữ liệu trên trang là dữ liệu mẫu để minh họa.</p>
+  </footer>
+
+
+  <script type="module" crossorigin src="../js/main.js"></script>
+
+</body>
+</html>
