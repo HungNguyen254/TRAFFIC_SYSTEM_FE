@@ -35,7 +35,7 @@
     <!-- ===== BẢNG DỰ BÁO (đổi khung giờ bằng CSS, không dùng JavaScript) ===== -->
     <section class="section" id="forecast">
       <h2>Dự báo theo khung giờ</h2>
-      <p class="section-desc">Chọn một khung giờ để xem mức độ ùn tắc dự kiến trên từng tuyến.</p>
+      <p class="section-desc">Chọn khung giờ, sau đó di chuột hoặc dùng bàn phím trên tên đường để xem chỉ số.</p>
 
       <div class="forecast">
 
@@ -64,7 +64,7 @@
         <div class="forecast-table">
 
           <div class="row">
-            <div class="route"><strong>Đường Láng</strong><small>Ngã Tư Sở → Cầu Giấy</small></div>
+            <div class="route" tabindex="0"><strong>Đường Láng</strong><small>Ngã Tư Sở → Cầu Giấy</small></div>
             <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 88%;"></div></div><span>88% · Tắc nghẽn</span></div>
             <div class="level slot-2 yellow"><div class="bar-track"><div class="bar" style="width: 45%;"></div></div><span>45% · Đông</span></div>
             <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 92%;"></div></div><span>92% · Tắc nghẽn</span></div>
@@ -72,7 +72,7 @@
           </div>
 
           <div class="row">
-            <div class="route"><strong>Cầu Giấy – Xuân Thủy</strong><small>Ngã tư Cầu Giấy → Đại học Quốc gia</small></div>
+            <div class="route" tabindex="0"><strong>Cầu Giấy – Xuân Thủy</strong><small>Ngã tư Cầu Giấy → Đại học Quốc gia</small></div>
             <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 82%;"></div></div><span>82% · Tắc nghẽn</span></div>
             <div class="level slot-2 green"><div class="bar-track"><div class="bar" style="width: 38%;"></div></div><span>38% · Thông thoáng</span></div>
             <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 85%;"></div></div><span>85% · Tắc nghẽn</span></div>
@@ -80,7 +80,7 @@
           </div>
 
           <div class="row">
-            <div class="route"><strong>Nguyễn Trãi</strong><small>Ngã Tư Sở → Hà Đông</small></div>
+            <div class="route" tabindex="0"><strong>Nguyễn Trãi</strong><small>Ngã Tư Sở → Hà Đông</small></div>
             <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 74%;"></div></div><span>74% · Tắc nghẽn</span></div>
             <div class="level slot-2 yellow"><div class="bar-track"><div class="bar" style="width: 42%;"></div></div><span>42% · Đông</span></div>
             <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 90%;"></div></div><span>90% · Tắc nghẽn</span></div>
@@ -88,7 +88,7 @@
           </div>
 
           <div class="row">
-            <div class="route"><strong>Vành đai 3</strong><small>Mai Dịch → Pháp Vân</small></div>
+            <div class="route" tabindex="0"><strong>Vành đai 3</strong><small>Mai Dịch → Pháp Vân</small></div>
             <div class="level slot-1 red"><div class="bar-track"><div class="bar" style="width: 90%;"></div></div><span>90% · Tắc nghẽn</span></div>
             <div class="level slot-2 yellow"><div class="bar-track"><div class="bar" style="width: 55%;"></div></div><span>55% · Đông</span></div>
             <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 94%;"></div></div><span>94% · Tắc nghẽn</span></div>
@@ -96,7 +96,7 @@
           </div>
 
           <div class="row">
-            <div class="route"><strong>Phạm Văn Đồng</strong><small>Hoàng Quốc Việt → Xuân Đỉnh</small></div>
+            <div class="route" tabindex="0"><strong>Phạm Văn Đồng</strong><small>Hoàng Quốc Việt → Xuân Đỉnh</small></div>
             <div class="level slot-1 yellow"><div class="bar-track"><div class="bar" style="width: 65%;"></div></div><span>65% · Đông</span></div>
             <div class="level slot-2 green"><div class="bar-track"><div class="bar" style="width: 30%;"></div></div><span>30% · Thông thoáng</span></div>
             <div class="level slot-3 red"><div class="bar-track"><div class="bar" style="width: 78%;"></div></div><span>78% · Tắc nghẽn</span></div>
@@ -119,28 +119,24 @@
     <!-- ===== ĐIỂM NÓNG ===== -->
     <section class="section section-gray" id="hotspots">
       <h2>Điểm nóng ùn tắc hôm nay</h2>
-      <p class="section-desc">Những nút giao thường xuyên vượt ngưỡng ùn tắc trong tuần qua.</p>
+      <p class="section-desc">Di chuột hoặc dùng bàn phím để xem mức độ ùn tắc của từng địa điểm.</p>
 
       <div class="grid">
-        <article class="card">
+        <article class="card hotspot-card" tabindex="0">
           <h3>Ngã Tư Sở</h3>
-          <p class="level-label text-red">Tắc nghẽn nặng</p>
-          <p>Dòng xe từ Nguyễn Trãi, Láng và Trường Chinh đổ về cùng lúc vào khung 17:00–19:00.</p>
+          <p class="level-label hotspot-index text-red">Tắc nghẽn nặng</p>
         </article>
-        <article class="card">
+        <article class="card hotspot-card" tabindex="0">
           <h3>Nút giao Mai Dịch</h3>
-          <p class="level-label text-red">Tắc nghẽn nặng</p>
-          <p>Xe cửa ngõ phía Tây hội tụ với xe đi Vành đai 3 vào giờ cao điểm sáng.</p>
+          <p class="level-label hotspot-index text-red">Tắc nghẽn nặng</p>
         </article>
-        <article class="card">
+        <article class="card hotspot-card" tabindex="0">
           <h3>Ngã tư Cầu Giấy</h3>
-          <p class="level-label text-yellow">Đông</p>
-          <p>Ùn từng đợt, thường giải tỏa sau khoảng 20 phút nếu không có sự cố.</p>
+          <p class="level-label hotspot-index text-yellow">Đông</p>
         </article>
-        <article class="card">
+        <article class="card hotspot-card" tabindex="0">
           <h3>Đường Phạm Hùng</h3>
-          <p class="level-label text-green">Thông thoáng</p>
-          <p>Lưu lượng ổn định, phù hợp làm tuyến thay thế khi các tuyến lân cận bị tắc.</p>
+          <p class="level-label hotspot-index text-green">Thông thoáng</p>
         </article>
       </div>
     </section>

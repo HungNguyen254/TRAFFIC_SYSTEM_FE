@@ -146,6 +146,107 @@
   margin: 12px 0;
 }
 
+.road-search {
+  margin-bottom: 8px;
+}
+
+.road-search-controls {
+  display: flex;
+  gap: 8px;
+}
+
+#road-query {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+#road-query:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.road-search-controls .btn-secondary {
+  flex-shrink: 0;
+}
+
+.traffic-legend {
+  margin: 20px 0;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.traffic-legend h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.traffic-legend ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.traffic-legend li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+}
+
+.traffic-color {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border-radius: 50%;
+}
+
+.traffic-color.green { background: var(--green); }
+.traffic-color.yellow { background: var(--yellow); }
+.traffic-color.red { background: var(--red); }
+.traffic-color.darkred { background: var(--dark-red); }
+
+.traffic-legend small {
+  color: var(--text-muted);
+}
+
+.search-attribution,
+.search-status {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.search-attribution {
+  margin-bottom: 12px;
+}
+
+.search-status {
+  min-height: 24px;
+}
+
+.search-status.error {
+  color: var(--red);
+}
+
+.search-results:empty {
+  display: none;
+}
+
+.search-results .list-item {
+  display: block;
+}
+
+.detail[hidden] {
+  display: none;
+}
+
 .list {
   list-style: none;
   margin: 0 0 16px;
@@ -199,6 +300,17 @@
 .list-dot.green { background: var(--green); }
 .list-dot.yellow { background: var(--yellow); }
 .list-dot.red   { background: var(--red); }
+.list-dot.darkred { background: var(--dark-red); }
+
+.traffic-marker {
+  background: transparent;
+  border: 0;
+}
+
+.traffic-marker svg {
+  display: block;
+  filter: drop-shadow(0 2px 3px rgba(20, 35, 59, 0.4));
+}
 
 .detail {
   padding: 16px;
