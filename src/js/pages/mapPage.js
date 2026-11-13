@@ -5,6 +5,7 @@ import { renderMapView } from "../views/mapView.js";
 
 let activeMap = null;
 let activeChart = null;
+let isDestroyed = false;
 
 function initMapPage() {
 
@@ -1190,6 +1191,7 @@ function initMapPage() {
    * Vẽ 1 corridor: mỗi edge 1 polyline, màu theo congestion_level của edge.
    */
   async function drawCorridor(corridor) {
+    if (isDestroyed || !activeMap) return;
     const entry = {
       corridor,
       segmentLayers: [],
@@ -1228,6 +1230,7 @@ function initMapPage() {
     const snappedList = await Promise.all(
       corridor.edges.map((e) => snapEdgeGeometry(e.from, e.to)),
     );
+    if (isDestroyed || !activeMap) return;
 
     snappedList.forEach((snapped, i) => {
       const e = corridor.edges[i];
@@ -1317,11 +1320,15 @@ function initMapPage() {
   // ============================================================
   (async () => {
     const edges = await ApiClient.fetchEdges();
+    if (isDestroyed || !activeMap) return;
     const corridors = groupByCorridor(edges);
 
     for (const corridor of corridors) {
+      if (isDestroyed || !activeMap) return;
       await drawCorridor(corridor);
     }
+
+    if (isDestroyed || !activeMap) return;
 
     // Hỗ trợ deep-link từ main.html: Map.html?q=<tên trục>
     // -> tự điền ô search, đi search và focus vào tuyến luôn
@@ -1606,6 +1613,7 @@ function initMapPage() {
 
 export const mapPage = {
   mount(container) {
+    isDestroyed = false;
     container.innerHTML = `
       ${renderHeader("/map")}
       ${renderMapView()}
@@ -1615,6 +1623,7 @@ export const mapPage = {
   },
 
   unmount() {
+    isDestroyed = true;
     if (activeChart) {
       try {
         activeChart.destroy();

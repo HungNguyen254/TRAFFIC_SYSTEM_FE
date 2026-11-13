@@ -7,7 +7,7 @@ import { isAdmin, isLoggedIn } from "../api.js";
  * @returns {string} HTML string
  */
 export function renderHeader(currentPath = "/") {
-  const normPath = currentPath.split("?")[0].replace(/\/+$/, "") || "/";
+  const normPath = currentPath.split("?")[0].split("#")[0].replace(/\/+$/, "") || "/";
   const logged = isLoggedIn();
   const admin = isAdmin();
 

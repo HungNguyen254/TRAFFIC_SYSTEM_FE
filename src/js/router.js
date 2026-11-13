@@ -44,6 +44,22 @@ export function parseRoute(fullPath) {
 export function navigateTo(toPath, push = true) {
   const { path, search, hash } = parseRoute(toPath);
   const targetUrl = `${path}${search}${hash}`;
+  const currentParsed = parseRoute(window.location.pathname + window.location.search + window.location.hash);
+
+  // Nếu đã ở đúng route và chỉ khác hash (ví dụ bấm /#forecast khi đang ở /)
+  if (currentController && currentParsed.path === path && (hash || window.location.hash)) {
+    if (push && window.location.pathname + window.location.search + window.location.hash !== targetUrl) {
+      window.history.pushState(null, "", targetUrl);
+    }
+    if (hash) {
+      const el = document.querySelector(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+    }
+    return;
+  }
 
   if (push && window.location.pathname + window.location.search + window.location.hash !== targetUrl) {
     window.history.pushState(null, "", targetUrl);
@@ -99,6 +115,11 @@ export function initRouter(routeMap, container) {
 
   // Ủy quyền sự kiện click cho các liên kết nội bộ
   document.addEventListener("click", (e) => {
+    // Không chặn khi người dùng giữ phím bổ trợ để mở tab mới hoặc nhấn chuột giữa
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+      return;
+    }
+
     const link = e.target.closest("a");
     if (!link) return;
 
