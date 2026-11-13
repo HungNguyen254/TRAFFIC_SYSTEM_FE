@@ -2,7 +2,7 @@
 import { isAdmin, isLoggedIn } from "../api.js";
 
 /**
- * Render thanh header dùng chung kèm theo highlight trang hiện tại và trạng thái auth.
+ * Render thanh header tối giản, phi biểu tượng (No-Icon Swiss/Modern Minimalist)
  * @param {string} currentPath - Đường dẫn hiện tại (ví dụ: '/', '/map', '/login', '/admin')
  * @returns {string} HTML string
  */
@@ -13,8 +13,15 @@ export function renderHeader(currentPath = "/") {
 
   return `
     <header class="site-header">
-      <a class="logo" href="/" data-link>Tắc Đường <span>AI</span></a>
-      <nav class="menu">
+      <a class="logo" href="/" data-link title="Hà Nội Traffic AI">
+        <span class="logo-title">Hà Nội Traffic <span class="logo-accent">AI</span></span>
+        <span class="logo-badge">
+          <span class="pulse-dot"></span>
+          TRỰC TIẾP
+        </span>
+      </a>
+
+      <nav class="menu" aria-label="Điều hướng chính">
         <a href="/" data-link ${normPath === "/" ? 'aria-current="page"' : ""}>Trang chủ</a>
         <a href="/#forecast" data-link>Dự báo</a>
         <a href="/map" data-link ${normPath === "/map" ? 'aria-current="page"' : ""}>Bản đồ</a>

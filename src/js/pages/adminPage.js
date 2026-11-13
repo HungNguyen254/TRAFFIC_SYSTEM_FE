@@ -49,10 +49,10 @@ export const adminPage = {
             auth: true,
           });
           retrainMessage.style.color = "#16a34a";
-          retrainMessage.textContent = `✅ ${data.message || "Backend đã tiếp nhận yêu cầu huấn luyện trong tiến trình ngầm."}`;
+          retrainMessage.textContent = `${data.message || "Backend đã tiếp nhận yêu cầu huấn luyện trong tiến trình ngầm."}`;
         } catch (err) {
           retrainMessage.style.color = "#dc2626";
-          retrainMessage.textContent = `❌ ${err.message}`;
+          retrainMessage.textContent = `Lỗi: ${err.message}`;
         } finally {
           retrainBtn.disabled = false;
           retrainBtn.textContent = "Huấn luyện lại mô hình";
@@ -71,5 +71,5 @@ export const adminPage = {
     }
   },
 
-  unmount() {},
+  unmount() { },
 };

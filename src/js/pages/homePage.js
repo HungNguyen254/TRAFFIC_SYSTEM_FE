@@ -138,10 +138,10 @@ function initBackendConnection() {
     try {
       await checkHealth();
       output.style.color = "#16a34a";
-      output.textContent = `✅ Backend và database đã kết nối. (${new Date().toLocaleTimeString()})`;
+      output.textContent = `Backend và cơ sở dữ liệu đã kết nối thành công (${new Date().toLocaleTimeString()}).`;
     } catch (err) {
       output.style.color = "#dc2626";
-      output.textContent = `❌ Không thể kết nối Backend (${err.message}).`;
+      output.textContent = `Lỗi: Không thể kết nối Backend (${err.message}).`;
     }
   });
 }
@@ -179,7 +179,7 @@ function initForecastForm() {
       statusEl.textContent = `Dự báo thành công cho tuyến "${data.street_name}".`;
     } catch (err) {
       resultBox.hidden = true;
-      statusEl.textContent = `❌ ${err.message}`;
+      statusEl.textContent = `Lỗi: ${err.message}`;
       statusEl.style.color = "#dc2626";
     } finally {
       submitBtn.disabled = false;

@@ -22,5 +22,9 @@
   "homepage": "https://github.com/HungNguyen254/TRAFFIC_SYSTEM_FE#readme",
   "devDependencies": {
     "vite": "^8.3.6"
+  },
+  "dependencies": {
+    "chart.js": "^4.6.1",
+    "leaflet": "^1.9.4"
   }
 }

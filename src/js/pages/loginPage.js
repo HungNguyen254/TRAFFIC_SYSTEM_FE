@@ -98,13 +98,13 @@ export const loginPage = {
         const passwordError = getPasswordValidationMessage(newPassword);
         if (passwordError) {
           message.style.color = "#dc2626";
-          message.textContent = `❌ ${passwordError}`;
+          message.textContent = `Lỗi: ${passwordError}`;
           return;
         }
 
         if (newPassword !== confirmPassword) {
           message.style.color = "#dc2626";
-          message.textContent = "❌ Mật khẩu nhập lại không khớp.";
+          message.textContent = "Lỗi: Mật khẩu nhập lại không khớp.";
           return;
         }
 
@@ -122,10 +122,10 @@ export const loginPage = {
           });
           changePasswordForm.reset();
           message.style.color = "#16a34a";
-          message.textContent = "✅ Đổi mật khẩu thành công.";
+          message.textContent = "Đổi mật khẩu thành công.";
         } catch (err) {
           message.style.color = "#dc2626";
-          message.textContent = `❌ ${err.message}`;
+          message.textContent = `Lỗi: ${err.message}`;
         } finally {
           submitButton.disabled = false;
         }
@@ -171,11 +171,11 @@ export const loginPage = {
         });
         updateHeaderAuth();
         message.style.color = "#16a34a";
-        message.textContent = "✅ Đăng nhập thành công, đang chuyển hướng...";
+        message.textContent = "Đăng nhập thành công, đang chuyển hướng...";
         setTimeout(() => navigateTo("/"), 600);
       } catch (err) {
         message.style.color = "#dc2626";
-        message.textContent = `❌ ${err.message}`;
+        message.textContent = `Lỗi: ${err.message}`;
       }
     });
 
@@ -189,7 +189,7 @@ export const loginPage = {
       const passwordError = getPasswordValidationMessage(password);
       if (passwordError) {
         message.style.color = "#dc2626";
-        message.textContent = `❌ ${passwordError}`;
+        message.textContent = `Lỗi: ${passwordError}`;
         return;
       }
       message.textContent = "Đang xử lý...";
@@ -201,14 +201,14 @@ export const loginPage = {
           body: { email, password, full_name: fullName },
         });
         message.style.color = "#16a34a";
-        message.textContent = "✅ Tạo tài khoản thành công! Hãy đăng nhập.";
+        message.textContent = "Tạo tài khoản thành công! Hãy đăng nhập.";
         setTimeout(() => switchTab(true), 800);
       } catch (err) {
         message.style.color = "#dc2626";
-        message.textContent = `❌ ${err.message}`;
+        message.textContent = `Lỗi: ${err.message}`;
       }
     });
   },
 
-  unmount() {},
+  unmount() { },
 };

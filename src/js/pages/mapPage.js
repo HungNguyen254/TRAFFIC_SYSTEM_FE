@@ -1,4 +1,7 @@
 // File: src/js/pages/mapPage.js
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import Chart from "chart.js/auto";
 import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderMapView } from "../views/mapView.js";
@@ -42,7 +45,7 @@ function initMapPage() {
     if (!value) {
       throw new Error(
         `Thiếu cấu hình ${name} trong file .env của FE. ` +
-          `Hãy copy .env.example thành .env và điền giá trị.`,
+        `Hãy copy .env.example thành .env và điền giá trị.`,
       );
     }
     return value;
@@ -746,9 +749,9 @@ function initMapPage() {
       routeSubmitButton.textContent = "Đang tìm tuyến...";
       setRouteStatus(
         "Đang xác định hai địa điểm..." +
-          (routeActive
-            ? " Tuyến hiện tại vẫn được giữ đến khi tìm xong tuyến mới."
-            : ""),
+        (routeActive
+          ? " Tuyến hiện tại vẫn được giữ đến khi tìm xong tuyến mới."
+          : ""),
       );
 
       try {
@@ -1292,27 +1295,50 @@ function initMapPage() {
             ? `~${lvl.speed} km/h`
             : "Không có dữ liệu";
         return `
-        <li style="display:flex; align-items:center; gap:8px; padding:4px 0;">
-          <span style="width:14px; height:14px; border-radius:50%; background:${e.color_code || lvl?.color || NO_DATA_COLOR}; flex-shrink:0;"></span>
-          <span style="flex:1;">
-            ${e.street_name}
-            <small style="color:#64748b;">(${e.from.node_name} → ${e.to.node_name})</small>
+        <li style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom: 1px solid var(--border);">
+          <span style="width:10px; height:10px; border-radius:50%; background:${e.color_code || lvl?.color || NO_DATA_COLOR}; flex-shrink:0;"></span>
+          <span style="flex:1; font-size: 13px;">
+            <strong>${e.street_name}</strong>
+            <div style="color:var(--text-muted); font-size: 12px;">${e.from.node_name} → ${e.to.node_name}</div>
           </span>
-          <small style="color:#334155; white-space:nowrap;">${speedTxt}</small>
-          <small style="color:#64748b;">${fmt(distM / 1000)} km</small>
+          <span style="font-size: 13px; font-weight: 700; color:var(--text); white-space:nowrap;">${speedTxt}</span>
+          <span style="color:var(--text-muted); font-size: 12px;">${fmt(distM / 1000)} km</span>
         </li>`;
       })
       .join("");
 
     detailDiv.hidden = false;
     detailDiv.innerHTML = `
-      <h2 style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">${corridor.corridor_name}</h2>
-      <p style="margin-bottom: 6px;">Vận tốc trung bình: <strong>${entry.avgSpeed ? fmt(entry.avgSpeed) + " km/h" : "đang cập nhật..."}</strong></p>
-      <p style="margin-bottom: 6px;">Tổng chiều dài: <strong>${entry.totalKm ? fmt(entry.totalKm) + " km" : "--"}</strong></p>
-      ${entry.maxSpeedLimit ? `<p style="margin-bottom: 6px;">Giới hạn tốc độ: <strong>${entry.maxSpeedLimit} km/h</strong></p>` : ""}
-      <p style="margin-bottom: 4px;">Trạng thái theo từng cung (${corridor.edges.length} cung):</p>
-      <ul style="list-style:none; padding:0; margin:0 0 8px 0;">${rows}</ul>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+        <div>
+          <span style="font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.04em;">Chi tiết trục đường</span>
+          <h2 style="font-size: 17px; font-weight: 800; margin: 2px 0 0;">${corridor.corridor_name}</h2>
+        </div>
+        <button type="button" id="detail-close-btn" style="background: var(--surface-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted);" title="Đóng chi tiết">Đóng</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: 13px;">
+        <div style="background: #ffffff; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted);">Vận tốc trung bình</div>
+          <strong style="color: var(--primary); font-size: 14px;">${entry.avgSpeed ? fmt(entry.avgSpeed) + " km/h" : "Đang cập nhật..."}</strong>
+        </div>
+        <div style="background: #ffffff; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted);">Tổng chiều dài</div>
+          <strong style="font-size: 14px;">${entry.totalKm ? fmt(entry.totalKm) + " km" : "--"}</strong>
+        </div>
+      </div>
+
+      ${entry.maxSpeedLimit ? `<p style="margin: 0 0 10px; font-size: 12px; color: var(--text-muted);">Tốc độ tối đa cho phép: <strong>${entry.maxSpeedLimit} km/h</strong></p>` : ""}
+      <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;">Trạng thái ${corridor.edges.length} phân đoạn:</p>
+      <ul style="list-style:none; padding:0; margin:0 0 4px 0;">${rows}</ul>
     `;
+
+    const closeBtn = document.getElementById("detail-close-btn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        detailDiv.hidden = true;
+      });
+    }
   }
 
   // ============================================================
