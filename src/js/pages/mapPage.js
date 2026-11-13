@@ -1,11 +1,13 @@
-// File: TRAFFIC_SYSTEM_FE/js/Map.js
-// Cấu trúc dữ liệu khớp ERD:
-//   Nodes(id, node_code, node_name, lat, lng)
-//   Edges(id, edge_code, street_name, corridor_name, from_node, to_node, max_speed_limit, geom[LineString])
-//   TrafficRecords(id, edge_id, speed, congestion_level[1..4], color_code)
-//   Predictions(...) - dùng cho tính năng dự báo sau này
+// File: src/js/pages/mapPage.js
+import { renderHeader } from "../components/header.js";
+import { renderFooter } from "../components/footer.js";
+import { renderMapView } from "../views/mapView.js";
 
-document.addEventListener("DOMContentLoaded", () => {
+let activeMap = null;
+let activeChart = null;
+
+function initMapPage() {
+
   // ============================================================
   // 1. Mapping congestion_level (1..4) <-> màu / nhãn / tốc độ
   //    Khớp TrafficRecords.congestion_level + color_code trong ERD
@@ -615,6 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const routeDuration = document.getElementById("route-duration");
 
   const map = L.map("map-canvas").setView([21.018, 105.815], 13);
+  activeMap = map;
   map.createPane("routePane");
   map.getPane("routePane").style.zIndex = "650";
   map.createPane("routeMarkerPane");
@@ -1558,6 +1561,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
       },
     });
+    activeChart = currentChart;
   }
 
   // --- Bind events: toggle, close, show chart, back ---
@@ -1597,4 +1601,35 @@ document.addEventListener("DOMContentLoaded", () => {
     _originalShowCorridorDetail(entry);
     updatePopupContent(entry);
   };
-});
+
+}
+
+export const mapPage = {
+  mount(container) {
+    container.innerHTML = `
+      ${renderHeader("/map")}
+      ${renderMapView()}
+      ${renderFooter()}
+    `;
+    initMapPage();
+  },
+
+  unmount() {
+    if (activeChart) {
+      try {
+        activeChart.destroy();
+      } catch (err) {
+        console.error("Lỗi khi destroy chart:", err);
+      }
+      activeChart = null;
+    }
+    if (activeMap) {
+      try {
+        activeMap.remove();
+      } catch (err) {
+        console.error("Lỗi khi remove map:", err);
+      }
+      activeMap = null;
+    }
+  },
+};
