@@ -4,6 +4,7 @@ import { renderHeader } from "./components/header.js";
 import { renderFooter } from "./components/footer.js";
 import { homePage } from "./pages/homePage.js";
 import { loginPage } from "./pages/loginPage.js";
+import { adminPage } from "./pages/adminPage.js";
 
 // Stub controllers trước khi các tasks sau hoàn thiện từng trang
 const stubController = (title, path) => ({
@@ -24,7 +25,7 @@ const routes = {
   "/": homePage,
   "/map": stubController("Bản đồ", "/map"),
   "/login": loginPage,
-  "/admin": stubController("Quản trị", "/admin"),
+  "/admin": adminPage,
 };
 
 document.addEventListener("DOMContentLoaded", () => {
