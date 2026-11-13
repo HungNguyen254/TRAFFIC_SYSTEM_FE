@@ -34,8 +34,22 @@ export const loginPage = {
     const mePanel = document.getElementById("me-panel");
     const logoutButton = document.getElementById("logout-btn");
     const tabContainer = tabLogin?.parentElement;
+    const noticeEl = document.getElementById("auth-notice");
 
     if (!tabLogin || !tabRegister || !loginForm || !registerForm || !logoutButton) return;
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const redirectTarget = queryParams.get("redirect");
+    const authReason = queryParams.get("reason");
+
+    if (noticeEl && redirectTarget && !isLoggedIn()) {
+      noticeEl.hidden = false;
+      if (authReason === "admin_required" || redirectTarget.includes("admin")) {
+        noticeEl.textContent = "Khu vực Quản trị yêu cầu bạn phải đăng nhập tài khoản có quyền Quản trị viên (Admin).";
+      } else {
+        noticeEl.textContent = "Vui lòng đăng nhập tài khoản để tiếp tục truy cập.";
+      }
+    }
 
     logoutButton.addEventListener("click", () => {
       clearSession();
@@ -172,7 +186,8 @@ export const loginPage = {
         updateHeaderAuth();
         message.style.color = "#16a34a";
         message.textContent = "Đăng nhập thành công, đang chuyển hướng...";
-        setTimeout(() => navigateTo("/"), 600);
+        const target = redirectTarget && redirectTarget.startsWith("/") ? decodeURIComponent(redirectTarget) : "/";
+        setTimeout(() => navigateTo(target), 400);
       } catch (err) {
         message.style.color = "#dc2626";
         message.textContent = `Lỗi: ${err.message}`;

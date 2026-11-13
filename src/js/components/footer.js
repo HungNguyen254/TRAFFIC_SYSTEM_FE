@@ -16,8 +16,8 @@ export function renderFooter() {
         <div class="footer-links">
           <a href="/" data-link>Trang chủ</a>
           <a href="/#forecast" data-link>Dự báo tuyến</a>
-          <a href="/map" data-link>Bản đồ thời gian thực</a>
-          <a href="/#connect" data-link>Trạng thái hệ thống</a>
+          <a href="/map" data-link>Bản đồ trực tiếp</a>
+          <a href="/login" data-link>Cổng thông tin</a>
         </div>
 
         <div class="footer-copyright">

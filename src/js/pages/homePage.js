@@ -2,46 +2,21 @@
 import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderHomeView } from "../views/homeView.js";
-import { checkHealth, request } from "../api.js";
+import { fetchEdges, fetchForecast, CONGESTION_LEVELS, parseSpeedKmh } from "../api.js";
 
-const CONGESTION_MAP = {
-  1: { textClass: "text-green", label: "Thông thoáng", speed: 45 },
-  2: { textClass: "text-yellow", label: "Di chuyển chậm", speed: 22 },
-  3: { textClass: "text-red", label: "Ùn tắc nghiêm trọng", speed: 11 },
-  4: { textClass: "text-darkred", label: "Kẹt xe hoàn toàn", speed: 4 },
+const LEVEL_CLASS_MAP = {
+  1: { textClass: "text-green", label: "Thông thoáng" },
+  2: { textClass: "text-yellow", label: "Di chuyển chậm" },
+  3: { textClass: "text-red", label: "Ùn tắc nghiêm trọng" },
+  4: { textClass: "text-darkred", label: "Kẹt xe hoàn toàn" },
 };
-
-function parseSpeedKmh(value) {
-  const speed =
-    typeof value === "number"
-      ? value
-      : Number.parseFloat(String(value ?? "").replace(",", "."));
-  return Number.isFinite(speed) && speed > 0 ? speed : null;
-}
-
-function getTrafficLevel(edge) {
-  const declaredLevel = Number(edge.congestion_level);
-  if (CONGESTION_MAP[declaredLevel]) return declaredLevel;
-
-  const speed = parseSpeedKmh(edge.speed);
-  if (speed === null) return null;
-  if (speed >= 35) return 1;
-  if (speed >= 25) return 2;
-  if (speed >= 15) return 3;
-  return 4;
-}
 
 async function initTrafficData() {
   const status = document.getElementById("hotspot-status");
   if (!status) return;
 
   try {
-    const data = await request("/edges");
-    const edges = Array.isArray(data?.edges)
-      ? data.edges
-      : Array.isArray(data)
-        ? data
-        : [];
+    const edges = await fetchEdges();
     initStreetAutocomplete(edges);
     renderHotspots(edges);
     initHeroStats(edges);
@@ -70,13 +45,12 @@ function renderHotspots(edges) {
   if (!grid || !status) return;
 
   const hotspots = edges
-    .map((edge) => ({ edge, level: getTrafficLevel(edge) }))
-    .filter(({ level }) => level !== null && level >= 2)
+    .filter((edge) => edge.congestion_level !== null && edge.congestion_level >= 2)
     .sort((a, b) => {
-      if (a.level !== b.level) return b.level - a.level;
+      if (a.congestion_level !== b.congestion_level) return b.congestion_level - a.congestion_level;
       return (
-        (parseSpeedKmh(a.edge.speed) ?? Number.POSITIVE_INFINITY) -
-        (parseSpeedKmh(b.edge.speed) ?? Number.POSITIVE_INFINITY)
+        (parseSpeedKmh(a.speed) ?? Number.POSITIVE_INFINITY) -
+        (parseSpeedKmh(b.speed) ?? Number.POSITIVE_INFINITY)
       );
     })
     .slice(0, 6);
@@ -88,10 +62,11 @@ function renderHotspots(edges) {
     return;
   }
 
-  status.textContent = `Đang hiển thị ${hotspots.length} đoạn đường có mật độ cao nhất theo dữ liệu bản đồ.`;
+  status.textContent = `Đang hiển thị ${hotspots.length} đoạn đường có mật độ cao nhất theo dữ liệu giám sát.`;
   status.style.color = "";
-  hotspots.forEach(({ edge, level }) => {
-    const info = CONGESTION_MAP[level];
+
+  hotspots.forEach((edge) => {
+    const levelInfo = LEVEL_CLASS_MAP[edge.congestion_level] || LEVEL_CLASS_MAP[2];
     const card = document.createElement("article");
     card.className = "card hotspot-card";
 
@@ -109,8 +84,8 @@ function renderHotspots(edges) {
     }
 
     const levelLabel = document.createElement("p");
-    levelLabel.className = `level-label hotspot-index ${info.textClass}`;
-    levelLabel.textContent = info.label;
+    levelLabel.className = `level-label hotspot-index ${levelInfo.textClass}`;
+    levelLabel.textContent = levelInfo.label;
     card.appendChild(levelLabel);
 
     const speed = parseSpeedKmh(edge.speed);
@@ -124,25 +99,6 @@ function renderHotspots(edges) {
     }
 
     grid.appendChild(card);
-  });
-}
-
-function initBackendConnection() {
-  const fetchBtn = document.getElementById("fetch-btn");
-  const output = document.getElementById("output");
-  if (!fetchBtn || !output) return;
-
-  fetchBtn.addEventListener("click", async () => {
-    output.style.color = "#475569";
-    output.textContent = "Đang kết nối tới Backend...";
-    try {
-      await checkHealth();
-      output.style.color = "#16a34a";
-      output.textContent = `Backend và cơ sở dữ liệu đã kết nối thành công (${new Date().toLocaleTimeString()}).`;
-    } catch (err) {
-      output.style.color = "#dc2626";
-      output.textContent = `Lỗi: Không thể kết nối Backend (${err.message}).`;
-    }
   });
 }
 
@@ -166,13 +122,10 @@ function initForecastForm() {
     statusEl.textContent = "Hệ thống AI đang tính toán, vui lòng chờ...";
 
     try {
-      const data = await request("/predictions/forecast", {
-        method: "POST",
-        body: {
-          street_name: streetName,
-          weather,
-          minutes_ahead: [minutes],
-        },
+      const data = await fetchForecast({
+        street_name: streetName,
+        weather,
+        minutes_ahead: [minutes],
       });
       renderForecast(data);
       statusEl.style.color = "";
@@ -183,7 +136,7 @@ function initForecastForm() {
       statusEl.style.color = "#dc2626";
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Dự báo";
+      submitBtn.textContent = "Phân tích & Dự báo";
     }
   });
 }
@@ -201,7 +154,7 @@ function renderForecast(data) {
   maxSpeedEl.textContent = `Giới hạn tốc độ: ${data.max_speed_limit} km/h`;
 
   timelineEl.innerHTML = (data.timeline || []).map((item) => {
-    const lvl = CONGESTION_MAP[item.congestion_level] || CONGESTION_MAP[2];
+    const lvl = LEVEL_CLASS_MAP[item.congestion_level] || LEVEL_CLASS_MAP[2];
     const percent = Math.round(item.risk_factor * 100);
     const targetTime = new Date(item.target_time).toLocaleTimeString("vi-VN", {
       hour: "2-digit",
@@ -238,7 +191,7 @@ function initHeroStats(edges) {
 
   edges.forEach((edge) => {
     const corridorName = edge.corridor_name || edge.street_name || edge.edge_code;
-    const level = getTrafficLevel(edge);
+    const level = edge.congestion_level;
     const corridorLevel = corridors.get(corridorName) ?? 0;
     corridors.set(
       corridorName,
@@ -246,12 +199,9 @@ function initHeroStats(edges) {
     );
 
     const speed = parseSpeedKmh(edge.speed) ??
-      (level === null ? null : CONGESTION_MAP[level].speed);
+      (level === null ? null : (CONGESTION_LEVELS[level]?.speed || 30));
     if (speed === null) return;
-    const rawDistance = Number(edge.length_km);
-    const distance = Number.isFinite(rawDistance) && rawDistance > 0
-      ? rawDistance
-      : 1;
+    const distance = Number(edge.length_km) || 1;
     totalDistance += distance;
     totalTravelTime += distance / speed;
   });
@@ -280,12 +230,9 @@ export const homePage = {
       ${renderFooter()}
     `;
 
-    initBackendConnection();
     initForecastForm();
     initTrafficData();
   },
 
-  unmount() {
-    // Không cần timer cleanup đặc biệt
-  },
+  unmount() {},
 };

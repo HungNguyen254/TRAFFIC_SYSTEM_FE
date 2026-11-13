@@ -14,6 +14,8 @@ export function renderLoginView() {
           <p>Cổng thông tin & quản trị giao thông thông minh</p>
         </div>
 
+        <div id="auth-notice" class="auth-notice" hidden></div>
+
         <!-- Tab đăng nhập/đăng ký, hoặc tài khoản/đổi mật khẩu khi đã đăng nhập -->
         <div class="auth-tabs">
           <button type="button" class="auth-tab active" id="tab-login">

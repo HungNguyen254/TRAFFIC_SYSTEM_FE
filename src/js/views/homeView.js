@@ -182,28 +182,6 @@ export function renderHomeView() {
           </li>
         </ol>
       </section>
-
-      <!-- ===== TRẠNG THÁI HỆ THỐNG ===== -->
-      <section class="section" id="connect">
-        <div class="section-header">
-          <div class="section-eyebrow">HẠ TẦNG KẾT NỐI</div>
-          <h2>Trạng thái vận hành hệ thống</h2>
-          <p class="section-desc">
-            Kiểm tra tình trạng kết nối tới Backend API và cơ sở dữ liệu giao thông Hà Nội.
-          </p>
-        </div>
-
-        <div class="connect-card">
-          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
-            <div>
-              <div style="font-weight: 700; font-size: 15px;">API Gateway & Dịch vụ Dự báo</div>
-              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Endpoint kiểm tra: <code id="api-base-display">/api/health</code></div>
-            </div>
-            <button class="btn btn-outline" id="fetch-btn" type="button">Kiểm tra kết nối</button>
-          </div>
-          <p class="result" id="output" aria-live="polite"></p>
-        </div>
-      </section>
     </main>
   `;
 }

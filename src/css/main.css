@@ -952,6 +952,23 @@ button.btn:disabled {
   margin: 0;
 }
 
+.auth-notice {
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e40af;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.auth-notice[hidden] {
+  display: none !important;
+}
+
 .auth-tabs {
   display: flex;
   gap: 4px;

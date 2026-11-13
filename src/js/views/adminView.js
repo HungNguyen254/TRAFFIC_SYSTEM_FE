@@ -13,7 +13,7 @@ export function renderAdminView() {
             <div class="section-eyebrow">TRUNG TÂM ĐIỀU HÀNH</div>
             <h1>Bảng điều khiển Quản trị Hệ thống</h1>
             <p class="section-desc">
-              Trung tâm giám sát mô hình trí tuệ nhân tạo, điều hành phân tích dữ liệu và quản trị API.
+              Giám sát mô hình trí tuệ nhân tạo, điều hành phân tích dữ liệu và quản trị phân quyền.
             </p>
           </div>
           <div class="system-status-pill">
@@ -28,7 +28,7 @@ export function renderAdminView() {
             <div class="section-eyebrow">MÔ HÌNH DỰ BÁO</div>
             <h2>Huấn luyện lại mô hình AI</h2>
             <p>
-              Kích hoạt tác vụ <code>train_model()</code> trên Backend trong tiến trình ngầm (background worker), tự động nạp trọng số mới sau khi hoàn tất.
+              Kích hoạt tác vụ huấn luyện lại mạng neural trên máy chủ trong tiến trình ngầm, tự động đồng bộ trọng số mới sau khi hoàn tất.
             </p>
             <button class="btn" id="retrain-btn" type="button" style="width: 100%; margin-top: 8px;">
               Khởi động huấn luyện lại
@@ -59,73 +59,28 @@ export function renderAdminView() {
           </article>
         </div>
 
-        <!-- DANH SÁCH API ENDPOINTS -->
+        <!-- THÔNG SỐ VẬN HÀNH HỆ THỐNG -->
         <article class="card admin-card" style="margin-top: 24px;">
-          <div class="section-eyebrow">CỔNG DỊCH VỤ</div>
-          <h2>Hạ tầng API & Endpoints Dịch vụ</h2>
-          <p>Danh sách các dịch vụ RESTful cung cấp dữ liệu cho Frontend và các đối tác tích hợp:</p>
+          <div class="section-eyebrow">GIÁM SÁT HẠ TẦNG</div>
+          <h2>Thông số vận hành mạng lưới giao thông</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 14px;">
+            <div style="background: var(--surface-subtle); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+              <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Mô hình học máy</span>
+              <div style="font-size: 16px; font-weight: 800; margin-top: 4px; color: var(--text);">Neural Sequence Model</div>
+              <small style="color: var(--text-muted);">Học chuỗi thời gian & thời tiết</small>
+            </div>
 
-          <div class="admin-table-container">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th>Phương thức</th>
-                  <th>Endpoint</th>
-                  <th>Chức năng & Mô tả</th>
-                  <th>Yêu cầu quyền</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><span class="method-badge method-post">POST</span></td>
-                  <td><code>/api/v1/predictions/forecast</code></td>
-                  <td>Dự báo tắc đường theo timeline (30 / 60 / 120 phút)</td>
-                  <td><span class="badge" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">Công khai</span></td>
-                </tr>
-                <tr>
-                  <td><span class="method-badge method-get">GET</span></td>
-                  <td><code>/api/v1/edges</code></td>
-                  <td>Toàn bộ trục đường, nút giao và trạng thái giao thông mới nhất</td>
-                  <td><span class="badge" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">Công khai</span></td>
-                </tr>
-                <tr>
-                  <td><span class="method-badge method-get">GET</span></td>
-                  <td><code>/api/v1/directions</code></td>
-                  <td>Định tuyến tìm đường thông minh giữa 2 nút giao</td>
-                  <td><span class="badge" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">Công khai</span></td>
-                </tr>
-                <tr>
-                  <td><span class="method-badge method-post">POST</span></td>
-                  <td><code>/api/v1/auth/register</code></td>
-                  <td>Đăng ký tài khoản người dùng mới</td>
-                  <td><span class="badge" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">Công khai</span></td>
-                </tr>
-                <tr>
-                  <td><span class="method-badge method-post">POST</span></td>
-                  <td><code>/api/v1/auth/login</code></td>
-                  <td>Đăng nhập hệ thống & cấp phát JWT token</td>
-                  <td><span class="badge" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">Công khai</span></td>
-                </tr>
-                <tr>
-                  <td><span class="method-badge method-get">GET</span></td>
-                  <td><code>/api/v1/auth/me</code></td>
-                  <td>Tra cứu hồ sơ tài khoản hiện tại</td>
-                  <td><span class="badge" style="background:#eff6ff; color:#2563eb; border-color:#bfdbfe;">Người dùng</span></td>
-                </tr>
-                <tr>
-                  <td><span class="method-badge method-post">POST</span></td>
-                  <td><code>/api/v1/admin/retrain-model</code></td>
-                  <td>Kích hoạt huấn luyện lại mạng neural AI trong background</td>
-                  <td><span class="badge" style="background:#fdf2f8; color:#db2777; border-color:#fbcfe8;">Admin</span></td>
-                </tr>
-                <tr>
-                  <td><span class="method-badge method-get">GET</span></td>
-                  <td><code>/api/health</code></td>
-                  <td>Kiểm tra tình trạng sống (Healthcheck) Backend & Database</td>
-                  <td><span class="badge" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">Công khai</span></td>
-                </tr>
-              </tbody>
-            </table>
+            <div style="background: var(--surface-subtle); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+              <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Chu kỳ làm mới dữ liệu</span>
+              <div style="font-size: 16px; font-weight: 800; margin-top: 4px; color: var(--text);">Thời gian thực</div>
+              <small style="color: var(--text-muted);">Đồng bộ qua API Gateway</small>
+            </div>
+
+            <div style="background: var(--surface-subtle); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+              <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Cơ chế phân quyền</span>
+              <div style="font-size: 16px; font-weight: 800; margin-top: 4px; color: var(--text);">JWT Bearer + RBAC</div>
+              <small style="color: var(--text-muted);">Bảo vệ tuyến đường quản trị</small>
+            </div>
           </div>
         </article>
       </section>
@@ -143,10 +98,17 @@ export function renderAdminUnauthorizedView() {
         <div class="card admin-card" style="padding: 40px 32px;">
           <div class="section-eyebrow" style="color: var(--danger);">BẢO MẬT & PHÂN QUYỀN</div>
           <h2>Từ chối quyền truy cập</h2>
-          <p style="margin-bottom: 24px;">Khu vực quản trị chỉ dành riêng cho tài khoản quản trị viên (Admin). Vui lòng đăng nhập bằng tài khoản có đặc quyền để tiếp tục.</p>
-          <a class="btn" href="/login" data-link style="width: 100%;">
-            Đăng nhập tài khoản Quản trị
-          </a>
+          <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 14px;">
+            Khu vực quản trị chỉ dành riêng cho tài khoản quản trị viên (Admin). Bạn không có đủ đặc quyền để xem nội dung này.
+          </p>
+          <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <a class="btn" href="/login" data-link>
+              Đổi tài khoản đăng nhập
+            </a>
+            <a class="btn btn-outline" href="/" data-link>
+              Về Trang chủ
+            </a>
+          </div>
         </div>
       </section>
     </main>

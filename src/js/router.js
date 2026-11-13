@@ -1,4 +1,5 @@
 // File: src/js/router.js
+import { isLoggedIn, isAdmin } from "./api.js";
 
 let routes = {};
 let currentController = null;
@@ -37,7 +38,39 @@ export function parseRoute(fullPath) {
 }
 
 /**
- * Điều hướng người dùng đến path chỉ định
+ * Route Guard: Kiểm tra quyền truy cập (Hàng rào phân quyền website)
+ * @param {string} targetPath 
+ * @param {object} routeEntry 
+ * @returns {{ allowed: boolean, redirect?: string }}
+ */
+function evaluateRouteGuard(targetPath, routeEntry) {
+  const meta = routeEntry?.meta || {};
+
+  // 1. Tuyến đường yêu cầu xác thực đăng nhập
+  if (meta.requiresAuth && !isLoggedIn()) {
+    return {
+      allowed: false,
+      redirect: `/login?redirect=${encodeURIComponent(targetPath)}&reason=auth_required`,
+    };
+  }
+
+  // 2. Tuyến đường yêu cầu quyền quản trị viên (Admin)
+  if (meta.role === "admin" && !isAdmin()) {
+    // Nếu chưa đăng nhập thì chuyển về /login
+    if (!isLoggedIn()) {
+      return {
+        allowed: false,
+        redirect: `/login?redirect=${encodeURIComponent(targetPath)}&reason=admin_required`,
+      };
+    }
+    // Nếu đã đăng nhập nhưng là user thường, cho phép route mount để hiển thị màn hình từ chối quyền chuyên nghiệp
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Điều hướng người dùng đến path chỉ định với cơ chế Route Guard
  * @param {string} toPath - Đường dẫn cần chuyển đến
  * @param {boolean} push - Có ghi vào browser history không
  */
@@ -45,6 +78,14 @@ export function navigateTo(toPath, push = true) {
   const { path, search, hash } = parseRoute(toPath);
   const targetUrl = `${path}${search}${hash}`;
   const currentParsed = parseRoute(window.location.pathname + window.location.search + window.location.hash);
+
+  // 1. Kiểm tra Route Guard
+  const routeEntry = routes[path];
+  const guard = evaluateRouteGuard(path, routeEntry);
+  if (!guard.allowed && guard.redirect) {
+    navigateTo(guard.redirect, push);
+    return;
+  }
 
   // Nếu đã ở đúng route và chỉ khác hash (ví dụ bấm /#forecast khi đang ở /)
   if (currentController && currentParsed.path === path && (hash || window.location.hash)) {
@@ -65,30 +106,30 @@ export function navigateTo(toPath, push = true) {
     window.history.pushState(null, "", targetUrl);
   }
 
-  // 1. Dọn dẹp trang trước nếu có hàm unmount
+  // 2. Dọn dẹp trang trước nếu có hàm unmount
   if (currentController && typeof currentController.unmount === "function") {
     try {
       currentController.unmount();
-    } catch (err) {
-      console.error("Lỗi khi unmount trang:", err);
+    } catch {
+      // Bỏ qua lỗi dọn dẹp để không làm gián đoạn chuyển trang
     }
   }
 
-  // 2. Tìm controller tương ứng
-  let controller = routes[path];
-  if (!controller) {
-    console.warn(`Không tìm thấy route: ${path}, chuyển về '/'`);
-    controller = routes["/"];
+  // 3. Tìm controller tương ứng
+  let controller = routeEntry?.page || routeEntry;
+  if (!controller || typeof controller.mount !== "function") {
+    const fallbackEntry = routes["/"];
+    controller = fallbackEntry?.page || fallbackEntry;
   }
 
   currentController = controller;
 
-  // 3. Mount trang mới
+  // 4. Mount trang mới
   if (controller && typeof controller.mount === "function" && appContainer) {
     controller.mount(appContainer, navigateTo);
   }
 
-  // 4. Xử lý cuộn trang: nếu có hash thì scroll tới element đó, nếu không thì lên đầu trang
+  // 5. Xử lý cuộn trang
   if (hash) {
     const el = document.querySelector(hash);
     if (el) {
@@ -101,7 +142,7 @@ export function navigateTo(toPath, push = true) {
 
 /**
  * Khởi tạo Router với danh sách routes và container root
- * @param {Record<string, { mount: Function, unmount?: Function }>} routeMap 
+ * @param {Record<string, any>} routeMap 
  * @param {HTMLElement} container 
  */
 export function initRouter(routeMap, container) {
@@ -115,7 +156,6 @@ export function initRouter(routeMap, container) {
 
   // Ủy quyền sự kiện click cho các liên kết nội bộ
   document.addEventListener("click", (e) => {
-    // Không chặn khi người dùng giữ phím bổ trợ để mở tab mới hoặc nhấn chuột giữa
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
       return;
     }
@@ -126,16 +166,14 @@ export function initRouter(routeMap, container) {
     const href = link.getAttribute("href");
     const target = link.getAttribute("target");
 
-    // Bỏ qua external links, mailto, tel, hoặc target blank
     if (!href || target === "_blank" || href.startsWith("http://") || href.startsWith("https://") || href.startsWith("mailto:") || href.startsWith("tel:")) {
       return;
     }
 
-    // Nếu chỉ là hash trên cùng trang chủ
     if (href.startsWith("#")) {
       const current = parseRoute(window.location.pathname);
       if (current.path === "/") {
-        return; // Cho phép trình duyệt scroll tự nhiên
+        return;
       } else {
         e.preventDefault();
         navigateTo(`/${href}`);
