@@ -3,6 +3,7 @@ import { initRouter } from "./router.js";
 import { renderHeader } from "./components/header.js";
 import { renderFooter } from "./components/footer.js";
 import { homePage } from "./pages/homePage.js";
+import { loginPage } from "./pages/loginPage.js";
 
 // Stub controllers trước khi các tasks sau hoàn thiện từng trang
 const stubController = (title, path) => ({
@@ -22,7 +23,7 @@ const stubController = (title, path) => ({
 const routes = {
   "/": homePage,
   "/map": stubController("Bản đồ", "/map"),
-  "/login": stubController("Đăng nhập", "/login"),
+  "/login": loginPage,
   "/admin": stubController("Quản trị", "/admin"),
 };
 
