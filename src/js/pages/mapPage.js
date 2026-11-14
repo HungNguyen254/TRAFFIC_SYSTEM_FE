@@ -9,6 +9,7 @@ import { fetchEdges, parseSpeedKmh, CONGESTION_LEVELS, NO_DATA_COLOR } from "../
 
 let activeMap = null;
 let activeChart = null;
+let activeRoadPopup = null;
 let isDestroyed = false;
 let backgroundAbortController = null;
 
@@ -43,7 +44,6 @@ function initMapPage() {
   const roadSearchForm = document.getElementById("road-search");
   const roadQueryInput = document.getElementById("road-query");
   const searchResultsUl = document.getElementById("search-results");
-  const detailDiv = document.getElementById("detail");
   const routeForm = document.getElementById("route-form");
   const routeOriginInput = document.getElementById("route-origin");
   const routeDestinationInput = document.getElementById("route-destination");
@@ -316,7 +316,10 @@ function initMapPage() {
 
   function bindCorridorEvents(entry) {
     const group = L.featureGroup(entry.segmentLayers);
-    group.on("click", () => showCorridorDetail(entry));
+    group.on("click", (e) => {
+      const clickPoint = e?.latlng || group.getBounds().getCenter();
+      openCorridorPopup(entry, clickPoint);
+    });
     group.on("mouseover", () => {
       if (!routeActive) {
         entry.segmentLayers.forEach((l) => l.setStyle({ weight: 11, opacity: 1.0 }));
@@ -336,9 +339,12 @@ function initMapPage() {
     return Number(n).toLocaleString("vi-VN", { maximumFractionDigits: digits });
   }
 
-  function showCorridorDetail(entry) {
+  function renderCorridorPopupContent(entry) {
     const corridor = entry.corridor;
-    if (!detailDiv) return;
+    const dominantLvl = corridor.edges[0]?.congestion_level;
+    const lvlInfo = CONGESTION_LEVELS[dominantLvl] || { label: "Thông thoáng", color: "#10b981", bg: "#ecfdf5", text: "#047857" };
+    const badgeColor = corridor.edges[0]?.color_code || lvlInfo.color || NO_DATA_COLOR;
+    const badgeLabel = lvlInfo.label || "Bình thường";
 
     const rows = corridor.edges
       .map((e, i) => {
@@ -351,53 +357,94 @@ function initMapPage() {
           : lvl
             ? `~${lvl.speed} km/h`
             : "Không có dữ liệu";
+        const dotColor = e.color_code || lvl?.color || NO_DATA_COLOR;
         return `
-        <li style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom: 1px solid var(--border);">
-          <span style="width:8px; height:8px; border-radius:50%; background:${e.color_code || lvl?.color || NO_DATA_COLOR}; flex-shrink:0;"></span>
-          <span style="flex:1; font-size: 13px;">
-            <strong>${e.street_name}</strong>
-            <div style="color:var(--text-muted); font-size: 12px;">${e.from.node_name} → ${e.to.node_name}</div>
-          </span>
-          <span style="font-size: 13px; font-weight: 700; color:var(--text); white-space:nowrap;">${speedTxt}</span>
-          <span style="color:var(--text-muted); font-size: 12px;">${fmt(distM / 1000)} km</span>
-        </li>`;
+          <li class="road-popup-segment-item">
+            <span class="road-popup-dot" style="background: ${dotColor};"></span>
+            <div class="road-popup-segment-info">
+              <div class="road-popup-segment-name">${e.street_name}</div>
+              <div class="road-popup-segment-nodes">${e.from.node_name} → ${e.to.node_name} (${fmt(distM / 1000)} km)</div>
+            </div>
+            <span class="road-popup-segment-speed">${speedTxt}</span>
+          </li>
+        `;
       })
       .join("");
 
-    detailDiv.hidden = false;
-    detailDiv.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+    return `
+      <div class="road-popup-card">
+        <div class="road-popup-header">
+          <div class="road-popup-eyebrow">DỮ LIỆU ĐOẠN ĐƯỜNG</div>
+          <div class="road-popup-title-row">
+            <h3 class="road-popup-title">${corridor.corridor_name}</h3>
+            <span class="road-popup-badge" style="background: ${lvlInfo.bg || '#eff6ff'}; color: ${lvlInfo.text || 'var(--primary)'}; border: 1px solid ${lvlInfo.border || 'var(--border)'};">
+              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${badgeColor};"></span>
+              ${badgeLabel}
+            </span>
+          </div>
+        </div>
+
+        <div class="road-popup-stats">
+          <div class="road-popup-stat-box">
+            <div class="road-popup-stat-label">Vận tốc TB</div>
+            <div class="road-popup-stat-value">${entry.avgSpeed ? fmt(entry.avgSpeed) + " km/h" : "Đang tính..."}</div>
+          </div>
+          <div class="road-popup-stat-box">
+            <div class="road-popup-stat-label">Tổng chiều dài</div>
+            <div class="road-popup-stat-value">${entry.totalKm ? fmt(entry.totalKm) + " km" : "--"}</div>
+          </div>
+        </div>
+
         <div>
-          <span style="font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.04em;">Chi tiết trục đường</span>
-          <h2 style="font-size: 17px; font-weight: 800; margin: 2px 0 0;">${corridor.corridor_name}</h2>
+          <div class="road-popup-segments-label">Trạng thái ${corridor.edges.length} phân đoạn:</div>
+          <ul class="road-popup-segments">${rows}</ul>
         </div>
-        <button type="button" id="detail-close-btn" style="background: var(--surface-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted);" title="Đóng chi tiết">Đóng</button>
-      </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: 13px;">
-        <div style="background: #ffffff; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;">
-          <div style="font-size: 11px; color: var(--text-muted);">Vận tốc trung bình</div>
-          <strong style="color: var(--primary); font-size: 14px;">${entry.avgSpeed ? fmt(entry.avgSpeed) + " km/h" : "Đang tính..."}</strong>
-        </div>
-        <div style="background: #ffffff; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;">
-          <div style="font-size: 11px; color: var(--text-muted);">Tổng chiều dài</div>
-          <strong style="font-size: 14px;">${entry.totalKm ? fmt(entry.totalKm) + " km" : "--"}</strong>
-        </div>
+        <button type="button" class="road-popup-chart-btn" id="popup-chart-trigger">
+          Xem biểu đồ phân đoạn
+        </button>
       </div>
-
-      ${entry.maxSpeedLimit ? `<p style="margin: 0 0 10px; font-size: 12px; color: var(--text-muted);">Tốc độ tối đa cho phép: <strong>${entry.maxSpeedLimit} km/h</strong></p>` : ""}
-      <p style="margin: 0 0 4px; font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;">Trạng thái ${corridor.edges.length} phân đoạn:</p>
-      <ul style="list-style:none; padding:0; margin:0 0 4px 0;">${rows}</ul>
     `;
+  }
 
-    const closeBtn = document.getElementById("detail-close-btn");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", () => {
-        detailDiv.hidden = true;
-      });
+  function openCorridorPopup(entry, latlng) {
+    if (!map || !entry || !latlng) return;
+
+    if (activeRoadPopup) {
+      activeRoadPopup.remove();
+      activeRoadPopup = null;
     }
 
+    const popupHtml = renderCorridorPopupContent(entry);
+    activeRoadPopup = L.popup({
+      className: "leaflet-road-popup",
+      maxWidth: 360,
+      minWidth: 280,
+      autoPan: true,
+      autoPanPadding: [20, 20],
+      closeButton: true,
+    })
+      .setLatLng(latlng)
+      .setContent(popupHtml)
+      .openOn(map);
+
     updatePopupContent(entry);
+
+    setTimeout(() => {
+      const chartTriggerBtn = document.getElementById("popup-chart-trigger");
+      if (chartTriggerBtn) {
+        chartTriggerBtn.addEventListener("click", () => {
+          updatePopupContent(entry);
+          if (popupOverlay) popupOverlay.hidden = false;
+          showChartPage();
+        });
+      }
+    }, 0);
+  }
+
+  function showCorridorDetail(entry) {
+    const group = L.featureGroup(entry.segmentLayers);
+    openCorridorPopup(entry, group.getBounds().getCenter());
   }
 
   // Khởi động nạp dữ liệu và vẽ bản đồ tối ưu
@@ -512,7 +559,7 @@ function initMapPage() {
         li.addEventListener("click", () => {
           const bounds = L.featureGroup(item.segmentLayers).getBounds();
           map.fitBounds(bounds, { padding: [40, 40] });
-          showCorridorDetail(item);
+          openCorridorPopup(item, bounds.getCenter());
         });
 
         searchResultsUl.appendChild(li);
@@ -520,7 +567,7 @@ function initMapPage() {
 
       const bounds = L.featureGroup(matched[0].segmentLayers).getBounds();
       map.fitBounds(bounds, { padding: [40, 40] });
-      showCorridorDetail(matched[0]);
+      openCorridorPopup(matched[0], bounds.getCenter());
     });
   }
 
@@ -779,6 +826,12 @@ export const mapPage = {
     if (backgroundAbortController) {
       backgroundAbortController.abort();
       backgroundAbortController = null;
+    }
+    if (activeRoadPopup) {
+      try {
+        activeRoadPopup.remove();
+      } catch {}
+      activeRoadPopup = null;
     }
     if (activeChart) {
       try {
