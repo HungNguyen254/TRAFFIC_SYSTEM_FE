@@ -188,8 +188,6 @@ export function renderMapView() {
           id="search-results"
           aria-label="Kết quả tìm kiếm"
         ></ul>
-
-        <div class="detail" id="detail" hidden></div>
       </aside>
     </div>
 
