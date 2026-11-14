@@ -525,18 +525,6 @@
   background: var(--dark-red);
 }
 
-.detail {
-  padding: 16px;
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  font-size: 14px;
-}
-
-.detail[hidden] {
-  display: none !important;
-}
-
 /* ===== LEAFLET CUSTOM ROAD POPUP ===== */
 .leaflet-road-popup .leaflet-popup-content-wrapper {
   background: var(--surface);

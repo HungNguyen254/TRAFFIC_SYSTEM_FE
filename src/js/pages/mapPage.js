@@ -342,9 +342,17 @@ function initMapPage() {
   function renderCorridorPopupContent(entry) {
     const corridor = entry.corridor;
     const dominantLvl = corridor.edges[0]?.congestion_level;
-    const lvlInfo = CONGESTION_LEVELS[dominantLvl] || { label: "Thông thoáng", color: "#10b981", bg: "#ecfdf5", text: "#047857" };
+    const lvlInfo = CONGESTION_LEVELS[dominantLvl] || { label: "Thông thoáng", color: "#10b981" };
     const badgeColor = corridor.edges[0]?.color_code || lvlInfo.color || NO_DATA_COLOR;
     const badgeLabel = lvlInfo.label || "Bình thường";
+
+    const BADGE_THEMES = {
+      1: { bg: "#ecfdf5", text: "#047857", border: "#a7f3d0" },
+      2: { bg: "#fffbeb", text: "#b45309", border: "#fde68a" },
+      3: { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" },
+      4: { bg: "#fff1f2", text: "#881337", border: "#fecdd3" },
+    };
+    const badgeTheme = BADGE_THEMES[dominantLvl] || BADGE_THEMES[1];
 
     const rows = corridor.edges
       .map((e, i) => {
@@ -358,11 +366,12 @@ function initMapPage() {
             ? `~${lvl.speed} km/h`
             : "Không có dữ liệu";
         const dotColor = e.color_code || lvl?.color || NO_DATA_COLOR;
+        const streetName = e.street_name || corridor.corridor_name || "Phân đoạn";
         return `
           <li class="road-popup-segment-item">
             <span class="road-popup-dot" style="background: ${dotColor};"></span>
             <div class="road-popup-segment-info">
-              <div class="road-popup-segment-name">${e.street_name}</div>
+              <div class="road-popup-segment-name">${streetName}</div>
               <div class="road-popup-segment-nodes">${e.from.node_name} → ${e.to.node_name} (${fmt(distM / 1000)} km)</div>
             </div>
             <span class="road-popup-segment-speed">${speedTxt}</span>
@@ -377,7 +386,7 @@ function initMapPage() {
           <div class="road-popup-eyebrow">DỮ LIỆU ĐOẠN ĐƯỜNG</div>
           <div class="road-popup-title-row">
             <h3 class="road-popup-title">${corridor.corridor_name}</h3>
-            <span class="road-popup-badge" style="background: ${lvlInfo.bg || '#eff6ff'}; color: ${lvlInfo.text || 'var(--primary)'}; border: 1px solid ${lvlInfo.border || 'var(--border)'};">
+            <span class="road-popup-badge" style="background: ${badgeTheme.bg}; color: ${badgeTheme.text}; border: 1px solid ${badgeTheme.border};">
               <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${badgeColor};"></span>
               ${badgeLabel}
             </span>
@@ -394,6 +403,8 @@ function initMapPage() {
             <div class="road-popup-stat-value">${entry.totalKm ? fmt(entry.totalKm) + " km" : "--"}</div>
           </div>
         </div>
+
+        ${entry.maxSpeedLimit ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: -4px;">Tốc độ tối đa cho phép: <strong>${entry.maxSpeedLimit} km/h</strong></div>` : ""}
 
         <div>
           <div class="road-popup-segments-label">Trạng thái ${corridor.edges.length} phân đoạn:</div>
@@ -428,23 +439,21 @@ function initMapPage() {
       .setContent(popupHtml)
       .openOn(map);
 
+    activeRoadPopup.on("remove", () => {
+      activeRoadPopup = null;
+    });
+
     updatePopupContent(entry);
 
-    setTimeout(() => {
-      const chartTriggerBtn = document.getElementById("popup-chart-trigger");
-      if (chartTriggerBtn) {
-        chartTriggerBtn.addEventListener("click", () => {
-          updatePopupContent(entry);
-          if (popupOverlay) popupOverlay.hidden = false;
-          showChartPage();
-        });
-      }
-    }, 0);
-  }
-
-  function showCorridorDetail(entry) {
-    const group = L.featureGroup(entry.segmentLayers);
-    openCorridorPopup(entry, group.getBounds().getCenter());
+    const popupEl = activeRoadPopup.getElement();
+    const chartBtn = popupEl?.querySelector(".road-popup-chart-btn");
+    if (chartBtn) {
+      chartBtn.addEventListener("click", () => {
+        updatePopupContent(entry);
+        if (popupOverlay) popupOverlay.hidden = false;
+        showChartPage();
+      });
+    }
   }
 
   // Khởi động nạp dữ liệu và vẽ bản đồ tối ưu
