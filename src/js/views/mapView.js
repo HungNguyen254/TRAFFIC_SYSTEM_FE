@@ -53,36 +53,102 @@ export function renderMapView() {
           <div class="route-form-title">TÌM ĐƯỜNG THEO VẬN TỐC</div>
 
           <div class="route-inputs-container">
-            <label class="time-label" for="route-origin">Điểm khởi hành</label>
-            <input
-              id="route-origin"
-              name="origin"
-              type="search"
-              placeholder="Ví dụ: Bến xe Mỹ Đình, Cầu Giấy..."
-              required
-            />
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-              <label class="time-label" for="route-destination" style="margin: 0;">Điểm đến</label>
-              <button
-                class="route-swap-text"
-                id="route-swap"
-                type="button"
-                aria-label="Đổi điểm đi và điểm đến"
-                title="Đổi điểm đi và điểm đến"
-              >
-                Đổi chiều
-              </button>
+            <div class="route-point-group">
+              <label class="time-label" for="route-origin">Điểm khởi hành</label>
+              <div class="route-place-field">
+                <div class="route-place-controls">
+                  <input
+                    id="route-origin"
+                    name="origin"
+                    type="search"
+                    placeholder="Ví dụ: Bến xe Mỹ Đình, Cầu Giấy..."
+                    autocomplete="off"
+                    minlength="3"
+                    maxlength="200"
+                    aria-autocomplete="list"
+                    aria-expanded="false"
+                    aria-controls="route-origin-suggestions"
+                    required
+                  />
+                  <button
+                    class="route-pick"
+                    type="button"
+                    data-route-point="origin"
+                    aria-pressed="false"
+                    aria-label="Chọn điểm đi trên bản đồ"
+                    title="Chọn điểm đi trực tiếp trên bản đồ"
+                  >
+                    <span class="route-pick-icon" aria-hidden="true">A</span>
+                  </button>
+                </div>
+                <ul
+                  class="route-suggestions"
+                  id="route-origin-suggestions"
+                  role="listbox"
+                  aria-label="Gợi ý điểm đi"
+                  hidden
+                ></ul>
+              </div>
             </div>
 
-            <div class="route-destination-controls">
-              <input
-                id="route-destination"
-                name="destination"
-                type="search"
-                placeholder="Ví dụ: Hồ Hoàn Kiếm, Ngã Tư Sở..."
-                required
-              />
+            <button
+              class="route-pick route-swap-text"
+              id="route-swap"
+              type="button"
+              aria-label="Đổi điểm đi và điểm đến"
+              title="Đổi điểm đi và điểm đến"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.25"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 17V5m-4 4 4-4 4 4M16 7v12m-4-4 4 4 4-4" />
+              </svg>
+            </button>
+
+            <div class="route-point-group">
+              <label class="time-label" for="route-destination">Điểm đến</label>
+              <div class="route-place-field">
+                <div class="route-place-controls">
+                  <input
+                    id="route-destination"
+                    name="destination"
+                    type="search"
+                    placeholder="Ví dụ: Hồ Hoàn Kiếm, Ngã Tư Sở..."
+                    autocomplete="off"
+                    minlength="3"
+                    maxlength="200"
+                    aria-autocomplete="list"
+                    aria-expanded="false"
+                    aria-controls="route-destination-suggestions"
+                    required
+                  />
+                  <button
+                    class="route-pick"
+                    type="button"
+                    data-route-point="destination"
+                    aria-pressed="false"
+                    aria-label="Chọn điểm đến trên bản đồ"
+                    title="Chọn điểm đến trực tiếp trên bản đồ"
+                  >
+                    <span class="route-pick-icon" aria-hidden="true">B</span>
+                  </button>
+                </div>
+                <ul
+                  class="route-suggestions"
+                  id="route-destination-suggestions"
+                  role="listbox"
+                  aria-label="Gợi ý điểm đến"
+                  hidden
+                ></ul>
+              </div>
             </div>
           </div>
 

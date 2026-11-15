@@ -195,8 +195,16 @@
 .route-inputs-container {
   display: flex;
   flex-direction: column;
+  gap: 0;
+}
+
+.route-point-group {
+  display: grid;
   gap: 8px;
-  position: relative;
+}
+
+.route-inputs-container .time-label {
+  margin-bottom: 0;
 }
 
 .route-form input,
@@ -220,29 +228,122 @@
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
-.route-destination-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.route-place-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
+.route-place-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.route-place-controls input {
+  flex: 1;
+  width: 0;
+}
+
+.route-pick,
 .route-swap-text {
-  background: #ffffff;
-  border: 1px solid var(--border);
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  min-width: 42px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  background: var(--primary);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--trans-fast), box-shadow var(--trans-fast);
+}
+
+.route-pick:hover,
+.route-swap-text:hover,
+.route-pick[aria-pressed="true"] {
+  background: var(--primary-dark, #174a96);
+}
+
+.route-pick[aria-pressed="true"] {
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.route-pick-icon {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
   color: var(--primary);
+  background: #ffffff;
+  border-radius: 50%;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--trans-fast);
 }
 
-.route-swap-text:hover {
+.route-pick:focus-visible,
+.route-swap-text:focus-visible,
+.route-suggestion:focus-visible {
+  outline: 3px solid var(--primary-glow);
+  outline-offset: 2px;
+}
+
+.route-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 1200;
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md, 0 8px 20px rgba(20, 35, 59, 0.16));
+}
+
+.route-suggestions[hidden] {
+  display: none;
+}
+
+.route-suggestion {
+  width: 100%;
+  padding: 9px 10px;
+  color: var(--text);
+  background: #ffffff;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.route-suggestion:hover,
+.route-suggestion:focus-visible {
   background: var(--primary-light);
-  border-color: var(--primary-border);
+  outline: none;
+}
+
+.route-pick-mode {
+  cursor: crosshair;
+}
+
+.route-inputs-container > .route-swap-text {
+  align-self: center;
+  margin: 10px 0 2px;
+  flex-basis: 38px;
+  height: 38px;
+  color: #ffffff;
 }
 
 .route-actions {
