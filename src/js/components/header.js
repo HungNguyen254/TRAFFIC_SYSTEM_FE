@@ -96,14 +96,20 @@ export function initHeaderEvents() {
   if (headerEventsInitialized) return;
   headerEventsInitialized = true;
 
+  // Đảm bảo backdrop được gắn vào body để không bị giam trong Containing Block của header có backdrop-filter
+  let backdropEl = document.getElementById("nav-backdrop");
+  if (backdropEl && backdropEl.parentElement !== document.body) {
+    document.body.appendChild(backdropEl);
+  }
+
   document.addEventListener("click", (e) => {
     const toggleBtn = e.target.closest("#nav-toggle");
     const backdrop = e.target.closest("#nav-backdrop");
     const menuLink = e.target.closest(".menu a");
     const menu = document.getElementById("site-menu");
+    const isOpen = menu?.classList.contains("mobile-open");
 
     if (toggleBtn) {
-      const isOpen = menu?.classList.contains("mobile-open");
       if (isOpen) {
         closeMobileMenu();
       } else {
@@ -112,13 +118,17 @@ export function initHeaderEvents() {
       return;
     }
 
-    if (backdrop || menuLink) {
-      closeMobileMenu();
+    // Đóng khi click vào backdrop, click link, hoặc click bất kỳ đâu bên ngoài menu
+    if (isOpen) {
+      if (backdrop || menuLink || !e.target.closest("#site-menu")) {
+        closeMobileMenu();
+      }
     }
   });
 
   window.addEventListener("resize", () => {
-    if (window.innerWidth > 768) {
+    // Đồng bộ ngưỡng đóng drawer theo breakpoint CSS là 860px
+    if (window.innerWidth > 860) {
       closeMobileMenu();
     }
   });

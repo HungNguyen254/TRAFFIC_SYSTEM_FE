@@ -616,9 +616,17 @@ function initMapPage() {
         searchResultsUl.appendChild(li);
       });
 
-      const bounds = L.featureGroup(matched[0].segmentLayers).getBounds();
-      map.fitBounds(bounds, { padding: [40, 40] });
-      openCorridorPopup(matched[0], bounds.getCenter());
+      if (window.innerWidth <= 920) {
+        switchToMapView();
+      }
+      setTimeout(() => {
+        if (activeMap && matched.length) {
+          activeMap.invalidateSize();
+          const bounds = L.featureGroup(matched[0].segmentLayers).getBounds();
+          activeMap.fitBounds(bounds, { padding: [40, 40] });
+          openCorridorPopup(matched[0], bounds.getCenter());
+        }
+      }, 80);
     });
   }
 
@@ -726,8 +734,15 @@ function initMapPage() {
         });
 
         activeRoute = L.featureGroup([routeLine, startMarker, endMarker]).addTo(map);
-        map.fitBounds(activeRoute.getBounds(), { padding: [50, 50] });
-        if (window.innerWidth <= 920) switchToMapView();
+        if (window.innerWidth <= 920) {
+          switchToMapView();
+        }
+        setTimeout(() => {
+          if (activeMap && activeRoute) {
+            activeMap.invalidateSize();
+            activeMap.fitBounds(activeRoute.getBounds(), { padding: [50, 50] });
+          }
+        }, 80);
 
         const profile = VEHICLE_SPEED_PROFILES[vehicle] || VEHICLE_SPEED_PROFILES.car;
         const estDuration = (route.duration / profile.factor);

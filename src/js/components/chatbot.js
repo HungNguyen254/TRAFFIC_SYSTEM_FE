@@ -373,6 +373,14 @@ function initDraggableFab() {
   fabEl.addEventListener("pointerup", onPointerEnd);
   fabEl.addEventListener("pointercancel", onPointerEnd);
 
+  // Hỗ trợ truy cập bằng bàn phím (Phím Enter / Space)
+  fabEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setChatOpen(!isChatOpen);
+    }
+  });
+
   // Tự động căn chỉnh khi resize màn hình
   window.addEventListener("resize", () => {
     const rect = fabEl.getBoundingClientRect();
@@ -493,7 +501,9 @@ export function initChatbot() {
 
   // Bắt sự kiện nút Clear
   document.getElementById("chat-clear-btn").addEventListener("click", () => {
-    localStorage.removeItem(HISTORY_STORAGE_KEY);
+    try {
+      localStorage.removeItem(HISTORY_STORAGE_KEY);
+    } catch {}
     messagesContainer.innerHTML = "";
     const greeting = getInitialGreeting();
     messagesContainer.appendChild(createMessageBubble(greeting));
