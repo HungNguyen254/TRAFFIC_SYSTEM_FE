@@ -186,13 +186,102 @@
 }
 
 .route-destination-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.route-place-field {
+  position: relative;
+  min-width: 0;
+}
+
+.route-place-controls {
   display: flex;
   gap: 8px;
 }
 
-.route-swap {
+.route-place-controls input {
+  flex: 1;
+  width: 0;
+}
+
+.route-pick {
+  display: grid;
   flex: 0 0 44px;
-  padding: 8px;
+  width: 44px;
+  min-width: 44px;
+  height: 48px;
+  place-items: center;
+  padding: 0;
+}
+
+.route-pick[aria-pressed="true"] {
+  background: #174a96;
+  box-shadow: 0 0 0 2px var(--yellow);
+}
+
+.route-pick-icon {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: var(--primary);
+  background: #ffffff;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.route-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 1200;
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(20, 35, 59, 0.16);
+}
+
+.route-suggestions[hidden] {
+  display: none;
+}
+
+.route-suggestion {
+  width: 100%;
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.route-suggestion:hover,
+.route-suggestion:focus-visible {
+  background: #dfeafb;
+  outline: none;
+}
+
+.route-pick-mode {
+  cursor: crosshair;
+}
+
+.route-swap {
+  width: 100%;
+  padding: 10px;
   font-size: 20px;
 }
 
@@ -229,6 +318,12 @@
 .route-submit:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+.route-pick:focus-visible,
+.route-suggestion:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
 }
 
 .route-status,

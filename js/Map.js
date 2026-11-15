@@ -49,8 +49,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const ROUTING_BASE_URL = requireEnv("VITE_ROUTING_URL");
   const TILE_URL = requireEnv("VITE_TILE_URL");
   const TILE_ATTRIBUTION = ENV.VITE_TILE_ATTRIBUTION || "";
-  const GEOCODER_URL = requireEnv("VITE_GEOCODER_URL");
   const SEARCH_VIEWBOX = requireEnv("VITE_SEARCH_VIEWBOX");
+  const SEARCH_BOUNDS = SEARCH_VIEWBOX.split(",").map(Number);
 
   /**
    * Lớp Client gọi API theo ERD.
@@ -613,6 +613,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const routeSummary = document.getElementById("route-summary");
   const routeDistance = document.getElementById("route-distance");
   const routeDuration = document.getElementById("route-duration");
+  const routeInputs = {
+    origin: routeOriginInput,
+    destination: routeDestinationInput,
+  };
+  const routeSuggestionLists = {
+    origin: document.getElementById("route-origin-suggestions"),
+    destination: document.getElementById("route-destination-suggestions"),
+  };
+  const routePickButtons = document.querySelectorAll(".route-pick");
 
   const map = L.map("map-canvas").setView([21.018, 105.815], 13);
   map.createPane("routePane");
@@ -636,6 +645,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let routeRequestId = 0;
   let lastGeocodeRequestAt = 0;
   const geocodeCache = new Map();
+  const routePlaces = { origin: null, destination: null };
+  const routePointMarkers = { origin: null, destination: null };
+  const routeSuggestionRequestIds = { origin: 0, destination: 0 };
+  const routeSuggestionTimers = { origin: null, destination: null };
+  let activeMapPickTarget = null;
+  let mapPickRequestId = 0;
+  let geocodeRequestQueue = Promise.resolve();
 
   function setRouteStatus(message, isError = false) {
     if (!routeStatus) return;
@@ -653,37 +669,213 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function waitForGeocodeSlot() {
+    const request = geocodeRequestQueue.then(async () => {
+      const delay = Math.max(0, 1100 - (Date.now() - lastGeocodeRequestAt));
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      lastGeocodeRequestAt = Date.now();
+    });
+    geocodeRequestQueue = request.catch(() => {});
+    return request;
+  }
+
+  function isWithinSearchArea(lat, lng) {
+    if (
+      SEARCH_BOUNDS.length !== 4 ||
+      SEARCH_BOUNDS.some((bound) => !Number.isFinite(bound))
+    ) {
+      throw new Error("Khung tìm kiếm địa điểm chưa được cấu hình hợp lệ.");
+    }
+    const [west, north, east, south] = SEARCH_BOUNDS;
+    return lng >= west && lng <= east && lat >= south && lat <= north;
+  }
+
+  async function fetchGeocodingData(endpoint, params, isCurrent = () => true) {
+    await waitForGeocodeSlot();
+    if (!isCurrent()) return null;
+
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/geocode/${endpoint}?${params}`,
+    );
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error("Dịch vụ tìm địa điểm trả về dữ liệu không hợp lệ.");
+    }
+    if (!response.ok) {
+      throw new Error(
+        payload?.message ||
+          payload?.detail ||
+          `Dịch vụ tìm địa điểm trả về HTTP ${response.status}.`,
+      );
+    }
+    return payload?.data ?? payload;
+  }
+
+  function makeRoutePlace(result) {
+    const lat = Number(result?.lat);
+    const lng = Number(result?.lon ?? result?.lng);
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      throw new Error("Tọa độ địa điểm không hợp lệ.");
+    }
+    if (!isWithinSearchArea(lat, lng)) {
+      throw new Error("Địa điểm phải nằm trong phạm vi tìm kiếm tại Hà Nội.");
+    }
+    const displayName =
+      typeof result.display_name === "string" && result.display_name.trim()
+        ? result.display_name.trim()
+        : `(${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+    return { lat, lng, display_name: displayName.slice(0, 200) };
+  }
+
+  function createPointTooltip(kind, displayName) {
+    const tooltip = document.createElement("span");
+    tooltip.textContent = `${kind === "origin" ? "Điểm đi" : "Điểm đến"}: ${displayName}`;
+    return tooltip;
+  }
+
+  function setRoutePlace(kind, place) {
+    const input = routeInputs[kind];
+    if (!input) return;
+    routePlaces[kind] = place;
+    input.value = place.display_name;
+
+    const color = kind === "origin" ? "#16a34a" : "#dc2626";
+    const tooltip = createPointTooltip(kind, place.display_name);
+    if (routePointMarkers[kind]) {
+      routePointMarkers[kind].setLatLng([place.lat, place.lng]);
+      routePointMarkers[kind].setStyle({ fillColor: color });
+      routePointMarkers[kind].setTooltipContent(tooltip);
+    } else {
+      routePointMarkers[kind] = L.circleMarker([place.lat, place.lng], {
+        pane: "routeMarkerPane",
+        radius: 9,
+        color: "#ffffff",
+        weight: 3,
+        fillColor: color,
+        fillOpacity: 1,
+      })
+        .bindTooltip(tooltip, { direction: "top", offset: [0, -8] })
+        .addTo(map);
+    }
+  }
+
+  function clearRoutePlace(kind) {
+    routePlaces[kind] = null;
+    if (routePointMarkers[kind]) {
+      map.removeLayer(routePointMarkers[kind]);
+      routePointMarkers[kind] = null;
+    }
+  }
+
+  function invalidateRouteForPointChange() {
+    routeRequestId += 1;
+    if (activeRoute) map.removeLayer(activeRoute);
+    activeRoute = null;
+    activeRouteEstimate = null;
+    routeActive = false;
+    setBaseRoadsDimmed(false);
+    if (routeSummary) routeSummary.hidden = true;
+    if (routeCancelButton) routeCancelButton.hidden = true;
+    if (routeSubmitButton) {
+      routeSubmitButton.disabled = false;
+      routeSubmitButton.textContent = "Vẽ tuyến đường";
+    }
+    if (detailDiv) detailDiv.hidden = true;
+  }
+
+  function hideRouteSuggestions(kind) {
+    const list = routeSuggestionLists[kind];
+    const input = routeInputs[kind];
+    if (!list || !input) return;
+    list.hidden = true;
+    list.replaceChildren();
+    input.setAttribute("aria-expanded", "false");
+  }
+
+  async function searchRoutePlaces(query, kind, requestId) {
+    const params = new URLSearchParams({
+      q: query,
+      limit: "5",
+      viewbox: SEARCH_VIEWBOX,
+    });
+    const results = await fetchGeocodingData(
+      "search",
+      params,
+      () => routeSuggestionRequestIds[kind] === requestId,
+    );
+    if (!results) return;
+    if (!Array.isArray(results)) {
+      throw new Error("Dịch vụ tìm địa điểm trả về danh sách không hợp lệ.");
+    }
+
+    const list = routeSuggestionLists[kind];
+    const input = routeInputs[kind];
+    if (!list || !input || routeSuggestionRequestIds[kind] !== requestId)
+      return;
+    list.replaceChildren();
+    if (!results.length) {
+      hideRouteSuggestions(kind);
+      setRouteStatus("Không tìm thấy gợi ý phù hợp tại Hà Nội.", true);
+      return;
+    }
+
+    results.forEach((result) => {
+      const place = makeRoutePlace(result);
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.className = "route-suggestion";
+      button.type = "button";
+      button.setAttribute("role", "option");
+      button.textContent = place.display_name;
+      button.addEventListener("click", () => {
+        mapPickRequestId += 1;
+        invalidateRouteForPointChange();
+        routeSuggestionRequestIds[kind] += 1;
+        if (routeSuggestionTimers[kind])
+          clearTimeout(routeSuggestionTimers[kind]);
+        setRoutePlace(kind, place);
+        hideRouteSuggestions(kind);
+        setRouteStatus(
+          `${kind === "origin" ? "Điểm đi" : "Điểm đến"} đã được chọn.`,
+        );
+      });
+      item.append(button);
+      list.append(item);
+    });
+    if (!list.childElementCount) {
+      hideRouteSuggestions(kind);
+      setRouteStatus("Không tìm thấy gợi ý phù hợp tại Hà Nội.", true);
+      return;
+    }
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  }
+
   async function geocodeAddress(query) {
     const cacheKey = query.trim().toLocaleLowerCase("vi");
     if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey);
 
-    const delay = Math.max(0, 1000 - (Date.now() - lastGeocodeRequestAt));
-    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-
-    const geocoderUrl = GEOCODER_URL;
     const params = new URLSearchParams({
-      format: "jsonv2",
-      limit: "1",
-      countrycodes: "vn",
-      bounded: "1",
+      limit: "5",
       viewbox: SEARCH_VIEWBOX,
-      q: `${query}, Hà Nội, Việt Nam`,
+      q: query,
     });
-    const response = await fetchWithTimeout(`${geocoderUrl}?${params}`);
-    lastGeocodeRequestAt = Date.now();
-    if (!response.ok)
-      throw new Error(`Dịch vụ tìm địa điểm trả về HTTP ${response.status}.`);
-
-    const results = await response.json();
-    if (!results.length)
+    const results = await fetchGeocodingData("search", params);
+    if (!Array.isArray(results) || !results.length)
       throw new Error(`Không tìm thấy địa điểm "${query}" tại Hà Nội.`);
 
-    const location = {
-      lat: Number(results[0].lat),
-      lng: Number(results[0].lon),
-    };
-    geocodeCache.set(cacheKey, location);
-    return location;
+    const place = makeRoutePlace(results[0]);
+    geocodeCache.set(cacheKey, place);
+    return place;
   }
 
   function formatDuration(seconds) {
@@ -724,6 +916,134 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
+  function setMapPickTarget(kind) {
+    activeMapPickTarget = kind;
+    map.getContainer().classList.toggle("route-pick-mode", Boolean(kind));
+    routePickButtons.forEach((button) => {
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.routePoint === kind),
+      );
+    });
+  }
+
+  Object.entries(routeInputs).forEach(([kind, input]) => {
+    if (!input) return;
+    input.addEventListener("input", () => {
+      mapPickRequestId += 1;
+      invalidateRouteForPointChange();
+      const query = input.value.trim();
+      if (routePlaces[kind]?.display_name !== query) clearRoutePlace(kind);
+
+      routeSuggestionRequestIds[kind] += 1;
+      const requestId = routeSuggestionRequestIds[kind];
+      if (routeSuggestionTimers[kind])
+        clearTimeout(routeSuggestionTimers[kind]);
+      hideRouteSuggestions(kind);
+      if (query.length < 3) return;
+
+      routeSuggestionTimers[kind] = setTimeout(() => {
+        searchRoutePlaces(query, kind, requestId).catch((error) => {
+          if (routeSuggestionRequestIds[kind] !== requestId) return;
+          hideRouteSuggestions(kind);
+          setRouteStatus(
+            error instanceof Error
+              ? error.message
+              : "Không thể tải gợi ý địa điểm.",
+            true,
+          );
+        });
+      }, 700);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      const list = routeSuggestionLists[kind];
+      if (event.key === "ArrowDown" && list && !list.hidden) {
+        event.preventDefault();
+        list.querySelector(".route-suggestion")?.focus();
+      } else if (event.key === "Escape") {
+        routeSuggestionRequestIds[kind] += 1;
+        if (routeSuggestionTimers[kind])
+          clearTimeout(routeSuggestionTimers[kind]);
+        hideRouteSuggestions(kind);
+      }
+    });
+
+    input.addEventListener("invalid", () => {
+      setRouteStatus(
+        input.validity.valueMissing
+          ? "Nhập cả điểm đi và điểm đến."
+          : "Tên địa điểm cần từ 3 đến 200 ký tự.",
+        true,
+      );
+    });
+  });
+
+  routePickButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const kind = button.dataset.routePoint;
+      if (kind !== "origin" && kind !== "destination") return;
+      Object.keys(routeSuggestionLists).forEach(hideRouteSuggestions);
+      setMapPickTarget(activeMapPickTarget === kind ? null : kind);
+      setRouteStatus(
+        activeMapPickTarget
+          ? `Nhấp vào bản đồ để chọn ${kind === "origin" ? "điểm đi" : "điểm đến"} tại Hà Nội.`
+          : "Đã hủy chọn điểm trên bản đồ.",
+      );
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    Object.entries(routeSuggestionLists).forEach(([kind, list]) => {
+      const field = list?.closest(".route-place-field");
+      if (field && !field.contains(event.target)) hideRouteSuggestions(kind);
+    });
+  });
+
+  map.on("click", async (event) => {
+    const kind = activeMapPickTarget;
+    if (!kind) return;
+    const { lat, lng } = event.latlng;
+    if (!isWithinSearchArea(lat, lng)) {
+      setRouteStatus(
+        "Chỉ chọn được vị trí trong phạm vi tìm kiếm tại Hà Nội.",
+        true,
+      );
+      return;
+    }
+
+    setMapPickTarget(null);
+    invalidateRouteForPointChange();
+    const selectionId = ++mapPickRequestId;
+    setRoutePlace(kind, makeRoutePlace({ lat, lon: lng }));
+    setRouteStatus("Đang tra cứu tên địa điểm tại vị trí vừa chọn...");
+
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lng),
+    });
+    try {
+      const result = await fetchGeocodingData("reverse", params);
+      if (selectionId !== mapPickRequestId) return;
+      if (!result || typeof result !== "object") {
+        throw new Error("Dịch vụ tra cứu địa điểm trả về dữ liệu không hợp lệ.");
+      }
+      const place = makeRoutePlace(result);
+      setRoutePlace(kind, { ...place, lat, lng });
+      setRouteStatus(
+        `${kind === "origin" ? "Điểm đi" : "Điểm đến"} đã được đặt trên bản đồ.`,
+      );
+    } catch (error) {
+      if (selectionId !== mapPickRequestId) return;
+      setRouteStatus(
+        error instanceof Error
+          ? `Đã đặt điểm theo tọa độ; không lấy được tên địa điểm qua dịch vụ geocoding. Bạn vẫn có thể vẽ tuyến bằng tọa độ này. ${error.message}`
+          : "Đã đặt điểm theo tọa độ; không lấy được tên địa điểm. Bạn vẫn có thể vẽ tuyến bằng tọa độ này.",
+        true,
+      );
+    }
+  });
+
   if (
     routeForm &&
     routeOriginInput &&
@@ -734,7 +1054,15 @@ document.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       const originName = routeOriginInput.value.trim();
       const destinationName = routeDestinationInput.value.trim();
-      if (!originName || !destinationName) return;
+      if (
+        originName.length < 3 ||
+        originName.length > 200 ||
+        destinationName.length < 3 ||
+        destinationName.length > 200
+      ) {
+        setRouteStatus("Tên mỗi địa điểm cần từ 3 đến 200 ký tự.", true);
+        return;
+      }
 
       const requestId = ++routeRequestId;
       if (routeCancelButton) routeCancelButton.hidden = false;
@@ -748,8 +1076,19 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       try {
-        const origin = await geocodeAddress(originName);
-        const destination = await geocodeAddress(destinationName);
+        const origin =
+          routePlaces.origin?.display_name === originName
+            ? routePlaces.origin
+            : await geocodeAddress(originName);
+        if (requestId !== routeRequestId) return;
+        const destination =
+          routePlaces.destination?.display_name === destinationName
+            ? routePlaces.destination
+            : await geocodeAddress(destinationName);
+        if (requestId !== routeRequestId) return;
+        if (origin.lat === destination.lat && origin.lng === destination.lng) {
+          throw new Error("Điểm đi và điểm đến phải là hai vị trí khác nhau.");
+        }
         if (requestId !== routeRequestId) return;
         const coordinates = `${origin.lng},${origin.lat};${destination.lng},${destination.lat}`;
         const routeUrl = `${ROUTING_BASE_URL}/${coordinates}?overview=full&geometries=geojson&steps=false`;
@@ -770,6 +1109,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (requestId !== routeRequestId) return;
 
+        if (routePlaces.origin !== origin) setRoutePlace("origin", origin);
+        if (routePlaces.destination !== destination)
+          setRoutePlace("destination", destination);
         const routePoints = route.geometry.coordinates.map(([lng, lat]) => [
           lat,
           lng,
@@ -783,27 +1125,7 @@ document.addEventListener("DOMContentLoaded", () => {
             createRouteSegment(segment.points, segment.level),
           ),
         );
-        const startMarker = L.circleMarker([origin.lat, origin.lng], {
-          pane: "routeMarkerPane",
-          radius: 8,
-          color: "#ffffff",
-          weight: 3,
-          fillColor: "#16a34a",
-          fillOpacity: 1,
-        });
-        const endMarker = L.circleMarker([destination.lat, destination.lng], {
-          pane: "routeMarkerPane",
-          radius: 8,
-          color: "#ffffff",
-          weight: 3,
-          fillColor: "#dc2626",
-          fillOpacity: 1,
-        });
-        const nextRoute = L.featureGroup([
-          routeLines,
-          startMarker,
-          endMarker,
-        ]).addTo(map);
+        const nextRoute = L.featureGroup([routeLines]).addTo(map);
         if (activeRoute) map.removeLayer(activeRoute);
         activeRoute = nextRoute;
         activeRouteEstimate = { segments: trafficSegments };
@@ -820,7 +1142,7 @@ document.addEventListener("DOMContentLoaded", () => {
         updateRouteDuration();
         if (routeSummary) routeSummary.hidden = false;
         if (detailDiv) detailDiv.hidden = true;
-        setRouteStatus(`${originName} → ${destinationName}`);
+        setRouteStatus(`${origin.display_name} → ${destination.display_name}`);
       } catch (error) {
         if (requestId !== routeRequestId) return;
         const message =
@@ -840,9 +1162,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("route-swap")?.addEventListener("click", () => {
-      const origin = routeOriginInput.value;
+      invalidateRouteForPointChange();
+      const originValue = routeOriginInput.value;
+      const originPlace = routePlaces.origin;
+      const originMarker = routePointMarkers.origin;
       routeOriginInput.value = routeDestinationInput.value;
-      routeDestinationInput.value = origin;
+      routeDestinationInput.value = originValue;
+      routePlaces.origin = routePlaces.destination;
+      routePlaces.destination = originPlace;
+      routePointMarkers.origin = routePointMarkers.destination;
+      routePointMarkers.destination = originMarker;
+      if (routePlaces.origin && routePointMarkers.origin) {
+        routePointMarkers.origin.setStyle({ fillColor: "#16a34a" });
+        routePointMarkers.origin.setTooltipContent(
+          createPointTooltip("origin", routePlaces.origin.display_name),
+        );
+      }
+      if (routePlaces.destination && routePointMarkers.destination) {
+        routePointMarkers.destination.setStyle({ fillColor: "#dc2626" });
+        routePointMarkers.destination.setTooltipContent(
+          createPointTooltip(
+            "destination",
+            routePlaces.destination.display_name,
+          ),
+        );
+      }
+      Object.keys(routeSuggestionLists).forEach(hideRouteSuggestions);
       routeOriginInput.focus();
     });
 
@@ -857,6 +1202,7 @@ document.addEventListener("DOMContentLoaded", () => {
       activeRouteEstimate = null;
       routeActive = false;
       setBaseRoadsDimmed(false);
+      if (routeSubmitButton) routeSubmitButton.disabled = false;
       routeSubmitButton.disabled = false;
       routeSubmitButton.textContent = "Vẽ tuyến đường";
       if (routeCancelButton) routeCancelButton.hidden = true;

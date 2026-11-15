@@ -66,22 +66,76 @@
         <form class="route-form" id="route-form">
           <h2>Chỉ đường</h2>
           <label class="time-label" for="route-origin">Điểm đi</label>
-          <input
-            id="route-origin"
-            name="origin"
-            type="search"
-            placeholder="Ví dụ: Bến xe Mỹ Đình"
-            required
-          />
+          <div class="route-place-field">
+            <div class="route-place-controls">
+              <input
+                id="route-origin"
+                name="origin"
+                type="search"
+                placeholder="Ví dụ: Bến xe Mỹ Đình"
+                autocomplete="off"
+                minlength="3"
+                maxlength="200"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="route-origin-suggestions"
+                required
+              />
+              <button
+                class="btn-secondary route-pick"
+                type="button"
+                data-route-point="origin"
+                aria-pressed="false"
+                aria-label="Chọn điểm đi trên bản đồ"
+                title="Chọn điểm đi trực tiếp trên bản đồ"
+              >
+                <span class="route-pick-icon" aria-hidden="true">A</span>
+              </button>
+            </div>
+            <ul
+              class="route-suggestions"
+              id="route-origin-suggestions"
+              role="listbox"
+              aria-label="Gợi ý điểm đi"
+              hidden
+            ></ul>
+          </div>
           <label class="time-label" for="route-destination">Điểm đến</label>
           <div class="route-destination-controls">
-            <input
-              id="route-destination"
-              name="destination"
-              type="search"
-              placeholder="Ví dụ: Hồ Hoàn Kiếm"
-              required
-            />
+            <div class="route-place-field">
+              <div class="route-place-controls">
+                <input
+                  id="route-destination"
+                  name="destination"
+                  type="search"
+                  placeholder="Ví dụ: Hồ Hoàn Kiếm"
+                  autocomplete="off"
+                  minlength="3"
+                  maxlength="200"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="route-destination-suggestions"
+                  required
+                />
+                <button
+                  class="btn-secondary route-pick"
+                  type="button"
+                  data-route-point="destination"
+                  aria-pressed="false"
+                  aria-label="Chọn điểm đến trên bản đồ"
+                  title="Chọn điểm đến trực tiếp trên bản đồ"
+                >
+                  <span class="route-pick-icon" aria-hidden="true">B</span>
+                </button>
+              </div>
+              <ul
+                class="route-suggestions"
+                id="route-destination-suggestions"
+                role="listbox"
+                aria-label="Gợi ý điểm đến"
+                hidden
+              ></ul>
+            </div>
             <button
               class="btn-secondary route-swap"
               id="route-swap"
