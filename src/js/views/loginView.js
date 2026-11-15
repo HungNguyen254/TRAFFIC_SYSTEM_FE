@@ -1,30 +1,21 @@
-<!doctype html>
-<html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tài khoản – Tắc Đường AI</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap"
-      rel="stylesheet"
-    />
+// File: src/js/views/loginView.js
 
-    <link rel="stylesheet" crossorigin href="../css/main.css" />
-  </head>
-  <body class="auth-page">
-    <!-- ===== THANH ĐẦU TRANG ===== -->
-    <header class="site-header">
-      <a class="logo" href="main.html">Tắc Đường <span>AI</span></a>
-      <nav class="menu">
-        <a href="main.html">Trang chủ</a>
-        <a href="Map.html">Bản đồ</a>
-        <a href="login.html" aria-current="page">Đăng nhập</a>
-      </nav>
-    </header>
-
+/**
+ * Template HTML Trang Đăng nhập / Tài khoản người dùng (No-Icon Swiss/Modern Design)
+ * @returns {string} HTML string
+ */
+export function renderLoginView() {
+  return `
     <main class="auth-main">
       <div class="auth-card card">
+        <div class="auth-card-header">
+          <div class="section-eyebrow">XÁC THỰC NGƯỜI DÙNG</div>
+          <h2>Hà Nội Traffic AI</h2>
+          <p>Cổng thông tin & quản trị giao thông thông minh</p>
+        </div>
+
+        <div id="auth-notice" class="auth-notice" hidden></div>
+
         <!-- Tab đăng nhập/đăng ký, hoặc tài khoản/đổi mật khẩu khi đã đăng nhập -->
         <div class="auth-tabs">
           <button type="button" class="auth-tab active" id="tab-login">
@@ -38,26 +29,31 @@
         <!-- ===== FORM ĐĂNG NHẬP ===== -->
         <form id="login-form" novalidate>
           <div class="form-field">
-            <label for="login-email">Email</label>
+            <label for="login-email">Địa chỉ Email</label>
             <input
               id="login-email"
               type="email"
               autocomplete="email"
-              placeholder="you@example.com"
+              placeholder="you@domain.com"
               required
             />
           </div>
+
           <div class="form-field">
             <label for="login-password">Mật khẩu</label>
             <input
               id="login-password"
               type="password"
               autocomplete="current-password"
-              placeholder="••••••••"
+              placeholder="Nhập mật khẩu của bạn"
               required
             />
           </div>
-          <button class="btn auth-submit" type="submit">Đăng nhập</button>
+
+          <button class="btn auth-submit" type="submit">
+            Đăng nhập hệ thống
+          </button>
+
           <p
             class="form-message"
             id="login-message"
@@ -74,27 +70,29 @@
               id="reg-fullname"
               type="text"
               autocomplete="name"
-              placeholder="Nguyễn Văn A"
+              placeholder="Ví dụ: Nguyễn Văn A"
               required
             />
           </div>
+
           <div class="form-field">
-            <label for="reg-email">Email</label>
+            <label for="reg-email">Địa chỉ Email</label>
             <input
               id="reg-email"
               type="email"
               autocomplete="email"
-              placeholder="you@example.com"
+              placeholder="you@domain.com"
               required
             />
           </div>
+
           <div class="form-field">
-            <label for="reg-password">Mật khẩu</label>
+            <label for="reg-password">Mật khẩu mới</label>
             <input
               id="reg-password"
               type="password"
               autocomplete="new-password"
-              placeholder="••••••••"
+              placeholder="Tối thiểu 6 ký tự"
               minlength="6"
               required
             />
@@ -102,7 +100,11 @@
               Ít nhất 6 ký tự, gồm 1 chữ hoa, 1 chữ số và 1 ký tự đặc biệt.
             </small>
           </div>
-          <button class="btn auth-submit" type="submit">Tạo tài khoản</button>
+
+          <button class="btn auth-submit" type="submit">
+            Tạo tài khoản mới
+          </button>
+
           <p
             class="form-message"
             id="register-message"
@@ -111,6 +113,7 @@
           ></p>
         </form>
 
+        <!-- ===== FORM ĐỔI MẬT KHẨU ===== -->
         <form id="change-password-form" hidden novalidate>
           <div class="form-field">
             <label for="current-password">Mật khẩu hiện tại</label>
@@ -122,6 +125,7 @@
               required
             />
           </div>
+
           <div class="form-field">
             <label for="new-password">Mật khẩu mới</label>
             <input
@@ -136,8 +140,9 @@
               Ít nhất 6 ký tự, gồm 1 chữ hoa, 1 chữ số và 1 ký tự đặc biệt.
             </small>
           </div>
+
           <div class="form-field">
-            <label for="confirm-password">Nhập lại mật khẩu mới</label>
+            <label for="confirm-password">Xác nhận mật khẩu mới</label>
             <input
               id="confirm-password"
               type="password"
@@ -147,7 +152,11 @@
               required
             />
           </div>
-          <button class="btn auth-submit" type="submit">Cập nhật mật khẩu</button>
+
+          <button class="btn auth-submit" type="submit">
+            Cập nhật mật khẩu
+          </button>
+
           <p
             class="form-message"
             id="change-password-message"
@@ -159,36 +168,37 @@
         <!-- ===== THÔNG TIN TÀI KHOẢN ĐÃ ĐĂNG NHẬP ===== -->
         <div id="me-panel" hidden>
           <h2 class="auth-welcome">
-            Xin chào, <span id="me-name">--</span> 👋
+            Tài khoản: <span id="me-name">--</span>
           </h2>
+
           <dl class="me-list">
             <dt>Email</dt>
             <dd id="me-email">--</dd>
+
             <dt>Vai trò</dt>
             <dd id="me-role">--</dd>
+
             <dt>Ngày tạo</dt>
             <dd id="me-created">--</dd>
           </dl>
+
           <div class="auth-actions">
             <a
               class="btn btn-outline auth-admin-link"
-              href="admin.html"
+              href="/admin"
               id="me-admin-link"
+              data-link
               hidden
-              >Vào trang quản trị</a
             >
+              Truy cập trang Quản trị
+            </a>
           </div>
         </div>
+
         <button class="btn-danger auth-logout" id="logout-btn" type="button" hidden>
-          Đăng xuất
+          Đăng xuất tài khoản
         </button>
       </div>
     </main>
-
-    <footer class="site-footer">
-      <p>Tắc Đường AI – Bài tập thực tập.</p>
-    </footer>
-
-    <script type="module" crossorigin src="../js/login.js"></script>
-  </body>
-</html>
+  `;
+}
