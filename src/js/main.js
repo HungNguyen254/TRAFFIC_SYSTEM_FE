@@ -5,6 +5,7 @@ import { mapPage } from "./pages/mapPage.js";
 import { loginPage } from "./pages/loginPage.js";
 import { adminPage } from "./pages/adminPage.js";
 import { initChatbot } from "./components/chatbot.js";
+import { initHeaderEvents } from "./components/header.js";
 
 /**
  * Định nghĩa hệ thống Routes và hàng rào phân quyền (Route Guards)
@@ -37,4 +38,5 @@ document.addEventListener("DOMContentLoaded", () => {
     initRouter(routes, app);
   }
   initChatbot();
+  initHeaderEvents();
 });
