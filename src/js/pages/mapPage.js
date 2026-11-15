@@ -883,7 +883,6 @@ export const mapPage = {
     container.innerHTML = `
       ${renderHeader("/map")}
       ${renderMapView()}
-      ${renderFooter()}
     `;
     initMapPage();
   },
