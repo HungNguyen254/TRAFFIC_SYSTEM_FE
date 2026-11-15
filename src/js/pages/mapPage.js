@@ -5,10 +5,11 @@ import Chart from "chart.js/auto";
 import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderMapView } from "../views/mapView.js";
-import { fetchEdges, parseSpeedKmh, CONGESTION_LEVELS, NO_DATA_COLOR } from "../api.js";
+import { API_BASE_URL, fetchEdges, parseSpeedKmh, CONGESTION_LEVELS, NO_DATA_COLOR } from "../api.js";
 
 let activeMap = null;
 let activeChart = null;
+let activeRoadPopup = null;
 let isDestroyed = false;
 let backgroundAbortController = null;
 
@@ -30,8 +31,8 @@ function initMapPage() {
   const ROUTING_BASE_URL = requireEnv("VITE_ROUTING_URL");
   const TILE_URL = requireEnv("VITE_TILE_URL");
   const TILE_ATTRIBUTION = ENV.VITE_TILE_ATTRIBUTION || "";
-  const GEOCODER_URL = requireEnv("VITE_GEOCODER_URL");
   const SEARCH_VIEWBOX = requireEnv("VITE_SEARCH_VIEWBOX");
+  const SEARCH_BOUNDS = SEARCH_VIEWBOX.split(",").map(Number);
 
   backgroundAbortController = new AbortController();
   const abortSignal = backgroundAbortController.signal;
@@ -43,7 +44,6 @@ function initMapPage() {
   const roadSearchForm = document.getElementById("road-search");
   const roadQueryInput = document.getElementById("road-query");
   const searchResultsUl = document.getElementById("search-results");
-  const detailDiv = document.getElementById("detail");
   const routeForm = document.getElementById("route-form");
   const routeOriginInput = document.getElementById("route-origin");
   const routeDestinationInput = document.getElementById("route-destination");
@@ -54,6 +54,56 @@ function initMapPage() {
   const routeSummary = document.getElementById("route-summary");
   const routeDistance = document.getElementById("route-distance");
   const routeDuration = document.getElementById("route-duration");
+  const routeInputs = {
+    origin: routeOriginInput,
+    destination: routeDestinationInput,
+  };
+  const routeSuggestionLists = {
+    origin: document.getElementById("route-origin-suggestions"),
+    destination: document.getElementById("route-destination-suggestions"),
+  };
+  const routePickButtons = document.querySelectorAll(".route-pick");
+
+  // ============================================================
+  // Mobile Tab Switching (<= 920px)
+  // ============================================================
+  const mapLayout = document.getElementById("map-layout");
+  const tabShowMap = document.getElementById("tab-show-map");
+  const tabShowPanel = document.getElementById("tab-show-panel");
+
+  function switchToMapView() {
+    if (mapLayout) {
+      mapLayout.classList.remove("view-panel");
+      mapLayout.classList.add("view-map");
+    }
+    if (tabShowMap && tabShowPanel) {
+      tabShowMap.classList.add("active");
+      tabShowMap.setAttribute("aria-selected", "true");
+      tabShowPanel.classList.remove("active");
+      tabShowPanel.setAttribute("aria-selected", "false");
+    }
+    setTimeout(() => {
+      if (activeMap) activeMap.invalidateSize();
+    }, 60);
+  }
+
+  function switchToPanelView() {
+    if (mapLayout) {
+      mapLayout.classList.remove("view-map");
+      mapLayout.classList.add("view-panel");
+    }
+    if (tabShowMap && tabShowPanel) {
+      tabShowPanel.classList.add("active");
+      tabShowPanel.setAttribute("aria-selected", "true");
+      tabShowMap.classList.remove("active");
+      tabShowMap.setAttribute("aria-selected", "false");
+    }
+  }
+
+  if (tabShowMap && tabShowPanel) {
+    tabShowMap.addEventListener("click", switchToMapView);
+    tabShowPanel.addEventListener("click", switchToPanelView);
+  }
 
   // ============================================================
   // Khởi tạo bản đồ với chế độ render Canvas tối ưu
@@ -96,6 +146,13 @@ function initMapPage() {
   let routeActive = false;
   let routeRequestId = 0;
   let lastGeocodeRequestAt = 0;
+  const routePlaces = { origin: null, destination: null };
+  const routePointMarkers = { origin: null, destination: null };
+  const routeSuggestionRequestIds = { origin: 0, destination: 0 };
+  const routeSuggestionTimers = { origin: null, destination: null };
+  let activeMapPickTarget = null;
+  let mapPickRequestId = 0;
+  let geocodeRequestQueue = Promise.resolve();
 
   function setRouteStatus(message, isError = false) {
     if (!routeStatus) return;
@@ -106,46 +163,223 @@ function initMapPage() {
   async function fetchWithTimeout(url, timeoutMs = 12000, signal = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const abortFromParent = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener("abort", abortFromParent, { once: true });
     try {
-      return await fetch(url, { signal: signal || controller.signal });
+      return await fetch(url, { signal: controller.signal });
     } finally {
       clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abortFromParent);
     }
+  }
+
+  function waitForGeocodeSlot() {
+    const request = geocodeRequestQueue.then(async () => {
+      const delay = Math.max(0, 1100 - (Date.now() - lastGeocodeRequestAt));
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      lastGeocodeRequestAt = Date.now();
+    });
+    geocodeRequestQueue = request.catch(() => {});
+    return request;
+  }
+
+  function isWithinSearchArea(lat, lng) {
+    if (
+      SEARCH_BOUNDS.length !== 4 ||
+      SEARCH_BOUNDS.some((bound) => !Number.isFinite(bound))
+    ) {
+      throw new Error("Khung tìm kiếm địa điểm chưa được cấu hình hợp lệ.");
+    }
+    const [west, north, east, south] = SEARCH_BOUNDS;
+    return lng >= west && lng <= east && lat >= south && lat <= north;
+  }
+
+  async function fetchGeocodingData(endpoint, params, isCurrent = () => true) {
+    await waitForGeocodeSlot();
+    if (!isCurrent() || isDestroyed) return null;
+
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/geocode/${endpoint}?${params}`,
+      12000,
+      abortSignal,
+    );
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error("Dịch vụ tìm địa điểm trả về dữ liệu không hợp lệ.");
+    }
+    if (!response.ok) {
+      throw new Error(
+        payload?.message ||
+          payload?.detail ||
+          `Dịch vụ tìm địa điểm trả về HTTP ${response.status}.`,
+      );
+    }
+    return payload?.data ?? payload;
+  }
+
+  function makeRoutePlace(result) {
+    const lat = Number(result?.lat);
+    const lng = Number(result?.lon ?? result?.lng);
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      throw new Error("Tọa độ địa điểm không hợp lệ.");
+    }
+    if (!isWithinSearchArea(lat, lng)) {
+      throw new Error("Địa điểm phải nằm trong phạm vi tìm kiếm tại Hà Nội.");
+    }
+    const displayName =
+      typeof result.display_name === "string" && result.display_name.trim()
+        ? result.display_name.trim()
+        : `(${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+    return { lat, lng, display_name: displayName.slice(0, 200) };
+  }
+
+  function createPointTooltip(kind, displayName) {
+    const tooltip = document.createElement("span");
+    tooltip.textContent = `${kind === "origin" ? "Điểm đi" : "Điểm đến"}: ${displayName}`;
+    return tooltip;
+  }
+
+  function setRoutePlace(kind, place) {
+    const input = routeInputs[kind];
+    if (!input) return;
+    routePlaces[kind] = place;
+    input.value = place.display_name;
+
+    const color = kind === "origin" ? "#16a34a" : "#dc2626";
+    const tooltip = createPointTooltip(kind, place.display_name);
+    if (routePointMarkers[kind]) {
+      routePointMarkers[kind].setLatLng([place.lat, place.lng]);
+      routePointMarkers[kind].setStyle({ fillColor: color });
+      routePointMarkers[kind].setTooltipContent(tooltip);
+    } else {
+      routePointMarkers[kind] = L.circleMarker([place.lat, place.lng], {
+        pane: "routeMarkerPane",
+        radius: 9,
+        color: "#ffffff",
+        weight: 3,
+        fillColor: color,
+        fillOpacity: 1,
+      })
+        .bindTooltip(tooltip, { direction: "top", offset: [0, -8] })
+        .addTo(map);
+    }
+  }
+
+  function clearRoutePlace(kind) {
+    routePlaces[kind] = null;
+    if (routePointMarkers[kind]) {
+      map.removeLayer(routePointMarkers[kind]);
+      routePointMarkers[kind] = null;
+    }
+  }
+
+  function invalidateRouteForPointChange() {
+    routeRequestId += 1;
+    if (activeRoute) map.removeLayer(activeRoute);
+    activeRoute = null;
+    activeRouteEstimate = null;
+    routeActive = false;
+    mapPolylines.forEach((item) => {
+      item.segmentLayers.forEach((layer) =>
+        layer.setStyle({ weight: 7, opacity: 0.88 }),
+      );
+    });
+    if (routeSummary) routeSummary.hidden = true;
+    if (routeCancelButton) routeCancelButton.hidden = true;
+    if (routeSubmitButton) routeSubmitButton.disabled = false;
+  }
+
+  function hideRouteSuggestions(kind) {
+    const list = routeSuggestionLists[kind];
+    const input = routeInputs[kind];
+    if (!list || !input) return;
+    list.hidden = true;
+    list.replaceChildren();
+    input.setAttribute("aria-expanded", "false");
+  }
+
+  async function searchRoutePlaces(query, kind, requestId) {
+    const params = new URLSearchParams({
+      q: query,
+      limit: "5",
+      viewbox: SEARCH_VIEWBOX,
+    });
+    const results = await fetchGeocodingData(
+      "search",
+      params,
+      () => routeSuggestionRequestIds[kind] === requestId,
+    );
+    if (!results) return;
+    if (!Array.isArray(results)) {
+      throw new Error("Dịch vụ tìm địa điểm trả về danh sách không hợp lệ.");
+    }
+
+    const list = routeSuggestionLists[kind];
+    const input = routeInputs[kind];
+    if (!list || !input || routeSuggestionRequestIds[kind] !== requestId)
+      return;
+    list.replaceChildren();
+    results.forEach((result) => {
+      const place = makeRoutePlace(result);
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.className = "route-suggestion";
+      button.type = "button";
+      button.setAttribute("role", "option");
+      button.textContent = place.display_name;
+      button.addEventListener("click", () => {
+        setMapPickTarget(null);
+        mapPickRequestId += 1;
+        invalidateRouteForPointChange();
+        routeSuggestionRequestIds[kind] += 1;
+        if (routeSuggestionTimers[kind])
+          clearTimeout(routeSuggestionTimers[kind]);
+        setRoutePlace(kind, place);
+        hideRouteSuggestions(kind);
+        setRouteStatus(
+          `${kind === "origin" ? "Điểm đi" : "Điểm đến"} đã được chọn.`,
+        );
+      });
+      item.append(button);
+      list.append(item);
+    });
+    if (!list.childElementCount) {
+      hideRouteSuggestions(kind);
+      setRouteStatus("Không tìm thấy gợi ý phù hợp tại Hà Nội.", true);
+      return;
+    }
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
   }
 
   async function geocodeAddress(query) {
     const cacheKey = query.trim().toLocaleLowerCase("vi");
     if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey);
 
-    const delay = Math.max(0, 800 - (Date.now() - lastGeocodeRequestAt));
-    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-
     const params = new URLSearchParams({
-      format: "jsonv2",
-      limit: "1",
-      countrycodes: "vn",
-      bounded: "1",
+      limit: "5",
       viewbox: SEARCH_VIEWBOX,
-      q: `${query}, Hà Nội, Việt Nam`,
+      q: query,
     });
 
-    const response = await fetchWithTimeout(`${GEOCODER_URL}?${params}`, 10000);
-    lastGeocodeRequestAt = Date.now();
-    if (!response.ok) {
-      throw new Error(`Dịch vụ tìm kiếm trả về mã lỗi HTTP ${response.status}.`);
-    }
-
-    const results = await response.json();
-    if (!results.length) {
+    const results = await fetchGeocodingData("search", params);
+    if (!Array.isArray(results) || !results.length) {
       throw new Error(`Không tìm thấy địa điểm "${query}" tại Hà Nội.`);
     }
 
-    const location = {
-      lat: Number(results[0].lat),
-      lng: Number(results[0].lon),
-    };
-    geocodeCache.set(cacheKey, location);
-    return location;
+    const place = makeRoutePlace(results[0]);
+    geocodeCache.set(cacheKey, place);
+    return place;
   }
 
   function formatDuration(seconds) {
@@ -261,6 +495,90 @@ function initMapPage() {
 
   const mapPolylines = [];
   const trafficLayerGroup = L.featureGroup().addTo(map);
+  const ROUTE_TRAFFIC_MATCH_DISTANCE_METERS = 35;
+
+  function getRouteTrafficColor(point, trafficSegments) {
+    let closestDistance = Infinity;
+    let closestColor = NO_DATA_COLOR;
+
+    trafficSegments.forEach((segment) => {
+      for (let i = 1; i < segment.points.length; i++) {
+        const distance = distToSegment(
+          point,
+          segment.points[i - 1],
+          segment.points[i],
+        );
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestColor = segment.color;
+        }
+      }
+    });
+
+    return closestDistance <= ROUTE_TRAFFIC_MATCH_DISTANCE_METERS
+      ? closestColor
+      : NO_DATA_COLOR;
+  }
+
+  function createTrafficColoredRoute(routePoints) {
+    const trafficSegments = mapPolylines.flatMap((entry) =>
+      entry.corridor.edges.map((edge, index) => {
+        const line = entry.segmentLayers[index];
+        const latLngs = line?.getLatLngs() || [];
+        const points =
+          latLngs.length > 1
+            ? latLngs.map(({ lat, lng }) => [lat, lng])
+            : [
+                [edge.from.lat, edge.from.lng],
+                [edge.to.lat, edge.to.lng],
+              ];
+        const level = CONGESTION_LEVELS[edge.congestion_level];
+        return {
+          points,
+          color: level
+            ? edge.color_code || level.color
+            : NO_DATA_COLOR,
+        };
+      }),
+    );
+
+    const layers = [];
+    let activeColor = null;
+    let activePoints = [];
+
+    function flushSegment() {
+      if (activePoints.length < 2) return;
+      layers.push(
+        L.polyline(activePoints, {
+          pane: "routePane",
+          color: activeColor,
+          weight: 7,
+          opacity: 0.98,
+          lineCap: "round",
+          lineJoin: "round",
+          interactive: false,
+        }),
+      );
+    }
+
+    for (let i = 1; i < routePoints.length; i++) {
+      const start = routePoints[i - 1];
+      const end = routePoints[i];
+      const midpoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+      const color = getRouteTrafficColor(midpoint, trafficSegments);
+
+      if (color !== activeColor) {
+        flushSegment();
+        activeColor = color;
+        activePoints = [start, end];
+      } else {
+        activePoints.push(end);
+      }
+    }
+    flushSegment();
+
+    return L.featureGroup(layers);
+  }
 
   /**
    * Gom các edges thành từng corridor
@@ -316,7 +634,10 @@ function initMapPage() {
 
   function bindCorridorEvents(entry) {
     const group = L.featureGroup(entry.segmentLayers);
-    group.on("click", () => showCorridorDetail(entry));
+    group.on("click", (e) => {
+      const clickPoint = e?.latlng || group.getBounds().getCenter();
+      openCorridorPopup(entry, clickPoint);
+    });
     group.on("mouseover", () => {
       if (!routeActive) {
         entry.segmentLayers.forEach((l) => l.setStyle({ weight: 11, opacity: 1.0 }));
@@ -336,9 +657,20 @@ function initMapPage() {
     return Number(n).toLocaleString("vi-VN", { maximumFractionDigits: digits });
   }
 
-  function showCorridorDetail(entry) {
+  function renderCorridorPopupContent(entry) {
     const corridor = entry.corridor;
-    if (!detailDiv) return;
+    const dominantLvl = corridor.edges[0]?.congestion_level;
+    const lvlInfo = CONGESTION_LEVELS[dominantLvl] || { label: "Thông thoáng", color: "#10b981" };
+    const badgeColor = corridor.edges[0]?.color_code || lvlInfo.color || NO_DATA_COLOR;
+    const badgeLabel = lvlInfo.label || "Bình thường";
+
+    const BADGE_THEMES = {
+      1: { bg: "#ecfdf5", text: "#047857", border: "#a7f3d0" },
+      2: { bg: "#fffbeb", text: "#b45309", border: "#fde68a" },
+      3: { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" },
+      4: { bg: "#fff1f2", text: "#881337", border: "#fecdd3" },
+    };
+    const badgeTheme = BADGE_THEMES[dominantLvl] || BADGE_THEMES[1];
 
     const rows = corridor.edges
       .map((e, i) => {
@@ -351,53 +683,95 @@ function initMapPage() {
           : lvl
             ? `~${lvl.speed} km/h`
             : "Không có dữ liệu";
+        const dotColor = e.color_code || lvl?.color || NO_DATA_COLOR;
+        const streetName = e.street_name || corridor.corridor_name || "Phân đoạn";
         return `
-        <li style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom: 1px solid var(--border);">
-          <span style="width:8px; height:8px; border-radius:50%; background:${e.color_code || lvl?.color || NO_DATA_COLOR}; flex-shrink:0;"></span>
-          <span style="flex:1; font-size: 13px;">
-            <strong>${e.street_name}</strong>
-            <div style="color:var(--text-muted); font-size: 12px;">${e.from.node_name} → ${e.to.node_name}</div>
-          </span>
-          <span style="font-size: 13px; font-weight: 700; color:var(--text); white-space:nowrap;">${speedTxt}</span>
-          <span style="color:var(--text-muted); font-size: 12px;">${fmt(distM / 1000)} km</span>
-        </li>`;
+          <li class="road-popup-segment-item">
+            <span class="road-popup-dot" style="background: ${dotColor};"></span>
+            <div class="road-popup-segment-info">
+              <div class="road-popup-segment-name">${streetName}</div>
+              <div class="road-popup-segment-nodes">${e.from.node_name} → ${e.to.node_name} (${fmt(distM / 1000)} km)</div>
+            </div>
+            <span class="road-popup-segment-speed">${speedTxt}</span>
+          </li>
+        `;
       })
       .join("");
 
-    detailDiv.hidden = false;
-    detailDiv.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+    return `
+      <div class="road-popup-card">
+        <div class="road-popup-header">
+          <div class="road-popup-eyebrow">DỮ LIỆU ĐOẠN ĐƯỜNG</div>
+          <div class="road-popup-title-row">
+            <h3 class="road-popup-title">${corridor.corridor_name}</h3>
+            <span class="road-popup-badge" style="background: ${badgeTheme.bg}; color: ${badgeTheme.text}; border: 1px solid ${badgeTheme.border};">
+              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${badgeColor};"></span>
+              ${badgeLabel}
+            </span>
+          </div>
+        </div>
+
+        <div class="road-popup-stats">
+          <div class="road-popup-stat-box">
+            <div class="road-popup-stat-label">Vận tốc TB</div>
+            <div class="road-popup-stat-value">${entry.avgSpeed ? fmt(entry.avgSpeed) + " km/h" : "Đang tính..."}</div>
+          </div>
+          <div class="road-popup-stat-box">
+            <div class="road-popup-stat-label">Tổng chiều dài</div>
+            <div class="road-popup-stat-value">${entry.totalKm ? fmt(entry.totalKm) + " km" : "--"}</div>
+          </div>
+        </div>
+
+        ${entry.maxSpeedLimit ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: -4px;">Tốc độ tối đa cho phép: <strong>${entry.maxSpeedLimit} km/h</strong></div>` : ""}
+
         <div>
-          <span style="font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.04em;">Chi tiết trục đường</span>
-          <h2 style="font-size: 17px; font-weight: 800; margin: 2px 0 0;">${corridor.corridor_name}</h2>
+          <div class="road-popup-segments-label">Trạng thái ${corridor.edges.length} phân đoạn:</div>
+          <ul class="road-popup-segments">${rows}</ul>
         </div>
-        <button type="button" id="detail-close-btn" style="background: var(--surface-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted);" title="Đóng chi tiết">Đóng</button>
-      </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: 13px;">
-        <div style="background: #ffffff; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;">
-          <div style="font-size: 11px; color: var(--text-muted);">Vận tốc trung bình</div>
-          <strong style="color: var(--primary); font-size: 14px;">${entry.avgSpeed ? fmt(entry.avgSpeed) + " km/h" : "Đang tính..."}</strong>
-        </div>
-        <div style="background: #ffffff; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;">
-          <div style="font-size: 11px; color: var(--text-muted);">Tổng chiều dài</div>
-          <strong style="font-size: 14px;">${entry.totalKm ? fmt(entry.totalKm) + " km" : "--"}</strong>
-        </div>
+        <button type="button" class="road-popup-chart-btn" id="popup-chart-trigger">
+          Xem biểu đồ phân đoạn
+        </button>
       </div>
-
-      ${entry.maxSpeedLimit ? `<p style="margin: 0 0 10px; font-size: 12px; color: var(--text-muted);">Tốc độ tối đa cho phép: <strong>${entry.maxSpeedLimit} km/h</strong></p>` : ""}
-      <p style="margin: 0 0 4px; font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;">Trạng thái ${corridor.edges.length} phân đoạn:</p>
-      <ul style="list-style:none; padding:0; margin:0 0 4px 0;">${rows}</ul>
     `;
+  }
 
-    const closeBtn = document.getElementById("detail-close-btn");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", () => {
-        detailDiv.hidden = true;
-      });
+  function openCorridorPopup(entry, latlng) {
+    if (!map || !entry || !latlng) return;
+
+    if (activeRoadPopup) {
+      activeRoadPopup.remove();
+      activeRoadPopup = null;
     }
 
+    const popupHtml = renderCorridorPopupContent(entry);
+    activeRoadPopup = L.popup({
+      className: "leaflet-road-popup",
+      maxWidth: 360,
+      minWidth: 280,
+      autoPan: true,
+      autoPanPadding: [20, 20],
+      closeButton: true,
+    })
+      .setLatLng(latlng)
+      .setContent(popupHtml)
+      .openOn(map);
+
+    activeRoadPopup.on("remove", () => {
+      activeRoadPopup = null;
+    });
+
     updatePopupContent(entry);
+
+    const popupEl = activeRoadPopup.getElement();
+    const chartBtn = popupEl?.querySelector(".road-popup-chart-btn");
+    if (chartBtn) {
+      chartBtn.addEventListener("click", () => {
+        updatePopupContent(entry);
+        if (popupOverlay) popupOverlay.hidden = false;
+        showChartPage();
+      });
+    }
   }
 
   // Khởi động nạp dữ liệu và vẽ bản đồ tối ưu
@@ -510,19 +884,158 @@ function initMapPage() {
         li.innerHTML = `<strong>${item.corridor.corridor_name}</strong>${speedTxt}`;
 
         li.addEventListener("click", () => {
+          if (window.innerWidth <= 920) switchToMapView();
           const bounds = L.featureGroup(item.segmentLayers).getBounds();
           map.fitBounds(bounds, { padding: [40, 40] });
-          showCorridorDetail(item);
+          openCorridorPopup(item, bounds.getCenter());
         });
 
         searchResultsUl.appendChild(li);
       });
 
-      const bounds = L.featureGroup(matched[0].segmentLayers).getBounds();
-      map.fitBounds(bounds, { padding: [40, 40] });
-      showCorridorDetail(matched[0]);
+      if (window.innerWidth <= 920) {
+        switchToMapView();
+      }
+      setTimeout(() => {
+        if (activeMap && matched.length) {
+          activeMap.invalidateSize();
+          const bounds = L.featureGroup(matched[0].segmentLayers).getBounds();
+          activeMap.fitBounds(bounds, { padding: [40, 40] });
+          openCorridorPopup(matched[0], bounds.getCenter());
+        }
+      }, 80);
     });
   }
+
+  function setMapPickTarget(kind) {
+    activeMapPickTarget = kind;
+    map.getContainer().classList.toggle("route-pick-mode", Boolean(kind));
+    routePickButtons.forEach((button) => {
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.routePoint === kind),
+      );
+    });
+    if (kind && window.innerWidth <= 920) switchToMapView();
+    setRouteStatus(
+      kind
+        ? `Nhấp vào bản đồ để chọn ${kind === "origin" ? "điểm khởi hành" : "điểm đến"}.`
+        : "Đã hủy chọn điểm trên bản đồ.",
+    );
+  }
+
+  Object.entries(routeInputs).forEach(([kind, input]) => {
+    if (!input) return;
+    input.addEventListener("input", () => {
+      if (activeMapPickTarget) setMapPickTarget(null);
+      mapPickRequestId += 1;
+      invalidateRouteForPointChange();
+      const query = input.value.trim();
+      if (routePlaces[kind]?.display_name !== query) clearRoutePlace(kind);
+
+      routeSuggestionRequestIds[kind] += 1;
+      const requestId = routeSuggestionRequestIds[kind];
+      if (routeSuggestionTimers[kind])
+        clearTimeout(routeSuggestionTimers[kind]);
+      hideRouteSuggestions(kind);
+      if (query.length < 3) return;
+
+      routeSuggestionTimers[kind] = setTimeout(() => {
+        searchRoutePlaces(query, kind, requestId).catch((error) => {
+          if (routeSuggestionRequestIds[kind] !== requestId) return;
+          hideRouteSuggestions(kind);
+          setRouteStatus(
+            error instanceof Error
+              ? error.message
+              : "Không thể tải gợi ý địa điểm.",
+            true,
+          );
+        });
+      }, 700);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      const list = routeSuggestionLists[kind];
+      if (event.key === "ArrowDown" && list && !list.hidden) {
+        event.preventDefault();
+        list.querySelector(".route-suggestion")?.focus();
+      } else if (event.key === "Escape") {
+        routeSuggestionRequestIds[kind] += 1;
+        if (routeSuggestionTimers[kind])
+          clearTimeout(routeSuggestionTimers[kind]);
+        hideRouteSuggestions(kind);
+      }
+    });
+
+    input.addEventListener("invalid", () => {
+      setRouteStatus(
+        input.validity.valueMissing
+          ? "Nhập cả điểm khởi hành và điểm đến."
+          : "Tên địa điểm cần từ 3 đến 200 ký tự.",
+        true,
+      );
+    });
+  });
+
+  routePickButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const kind = button.dataset.routePoint;
+      if (kind !== "origin" && kind !== "destination") return;
+      Object.keys(routeSuggestionLists).forEach(hideRouteSuggestions);
+      setMapPickTarget(activeMapPickTarget === kind ? null : kind);
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    Object.entries(routeSuggestionLists).forEach(([kind, list]) => {
+      const field = list?.closest(".route-place-field");
+      if (field && !field.contains(event.target)) hideRouteSuggestions(kind);
+    });
+  });
+
+  map.on("click", async (event) => {
+    const kind = activeMapPickTarget;
+    if (!kind || isDestroyed) return;
+    const { lat, lng } = event.latlng;
+    if (!isWithinSearchArea(lat, lng)) {
+      setRouteStatus(
+        "Chỉ chọn được vị trí trong phạm vi tìm kiếm tại Hà Nội.",
+        true,
+      );
+      return;
+    }
+
+    setMapPickTarget(null);
+    invalidateRouteForPointChange();
+    const selectionId = ++mapPickRequestId;
+    setRoutePlace(kind, makeRoutePlace({ lat, lon: lng }));
+    setRouteStatus("Đang tra cứu tên địa điểm tại vị trí vừa chọn...");
+
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lng),
+    });
+    try {
+      const result = await fetchGeocodingData("reverse", params);
+      if (selectionId !== mapPickRequestId || isDestroyed) return;
+      if (!result || typeof result !== "object") {
+        throw new Error("Dịch vụ tra cứu địa điểm trả về dữ liệu không hợp lệ.");
+      }
+      const place = makeRoutePlace(result);
+      setRoutePlace(kind, { ...place, lat, lng });
+      setRouteStatus(
+        `${kind === "origin" ? "Điểm khởi hành" : "Điểm đến"} đã được đặt trên bản đồ.`,
+      );
+    } catch (error) {
+      if (selectionId !== mapPickRequestId || isDestroyed) return;
+      setRouteStatus(
+        error instanceof Error
+          ? `Đã đặt điểm theo tọa độ; không lấy được tên địa điểm. Bạn vẫn có thể vẽ tuyến bằng tọa độ này. ${error.message}`
+          : "Đã đặt điểm theo tọa độ; không lấy được tên địa điểm. Bạn vẫn có thể vẽ tuyến bằng tọa độ này.",
+        true,
+      );
+    }
+  });
 
   // ============================================================
   // Đổi chiều lộ trình
@@ -530,9 +1043,38 @@ function initMapPage() {
   const routeSwapBtn = document.getElementById("route-swap");
   if (routeSwapBtn && routeOriginInput && routeDestinationInput) {
     routeSwapBtn.addEventListener("click", () => {
-      const temp = routeOriginInput.value;
+      setMapPickTarget(null);
+      invalidateRouteForPointChange();
+      const originValue = routeOriginInput.value;
+      const originPlace = routePlaces.origin;
+      const originMarker = routePointMarkers.origin;
       routeOriginInput.value = routeDestinationInput.value;
-      routeDestinationInput.value = temp;
+      routeDestinationInput.value = originValue;
+      routePlaces.origin = routePlaces.destination;
+      routePlaces.destination = originPlace;
+      routePointMarkers.origin = routePointMarkers.destination;
+      routePointMarkers.destination = originMarker;
+      if (routePlaces.origin && routePointMarkers.origin) {
+        routePointMarkers.origin.setStyle({ fillColor: "#16a34a" });
+        routePointMarkers.origin.setTooltipContent(
+          createPointTooltip("origin", routePlaces.origin.display_name),
+        );
+      }
+      if (routePlaces.destination && routePointMarkers.destination) {
+        routePointMarkers.destination.setStyle({ fillColor: "#dc2626" });
+        routePointMarkers.destination.setTooltipContent(
+          createPointTooltip(
+            "destination",
+            routePlaces.destination.display_name,
+          ),
+        );
+      }
+      Object.keys(routeSuggestionLists).forEach((kind) => {
+        routeSuggestionRequestIds[kind] += 1;
+        if (routeSuggestionTimers[kind])
+          clearTimeout(routeSuggestionTimers[kind]);
+        hideRouteSuggestions(kind);
+      });
     });
   }
 
@@ -544,6 +1086,7 @@ function initMapPage() {
       map.removeLayer(activeRoute);
       activeRoute = null;
     }
+    activeRouteEstimate = null;
     routeActive = false;
     mapPolylines.forEach((item) => {
       item.segmentLayers.forEach((l) => l.setStyle({ weight: 7, opacity: 0.88 }));
@@ -554,7 +1097,9 @@ function initMapPage() {
 
   if (routeCancelButton) {
     routeCancelButton.addEventListener("click", () => {
+      routeRequestId += 1;
       clearRoute();
+      routeSubmitButton.disabled = false;
       setRouteStatus("Đã hủy tuyến đường hiển thị.");
     });
   }
@@ -562,22 +1107,39 @@ function initMapPage() {
   if (routeForm) {
     routeForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      setMapPickTarget(null);
       const originQuery = routeOriginInput.value.trim();
       const destQuery = routeDestinationInput.value.trim();
       const vehicle = routeVehicleSelect.value || "car";
-      if (!originQuery || !destQuery) return;
+      if (
+        originQuery.length < 3 ||
+        originQuery.length > 200 ||
+        destQuery.length < 3 ||
+        destQuery.length > 200
+      ) {
+        setRouteStatus("Tên mỗi địa điểm cần từ 3 đến 200 ký tự.", true);
+        return;
+      }
 
       const currentId = ++routeRequestId;
       routeSubmitButton.disabled = true;
       setRouteStatus("Đang định vị địa điểm và tính lộ trình tối ưu...");
 
       try {
-        const [origin, dest] = await Promise.all([
-          geocodeAddress(originQuery),
-          geocodeAddress(destQuery),
-        ]);
+        const origin =
+          routePlaces.origin?.display_name === originQuery
+            ? routePlaces.origin
+            : await geocodeAddress(originQuery);
+        if (currentId !== routeRequestId || isDestroyed) return;
+        const dest =
+          routePlaces.destination?.display_name === destQuery
+            ? routePlaces.destination
+            : await geocodeAddress(destQuery);
 
         if (currentId !== routeRequestId || isDestroyed || !activeMap) return;
+        if (origin.lat === dest.lat && origin.lng === dest.lng) {
+          throw new Error("Điểm khởi hành và điểm đến phải là hai vị trí khác nhau.");
+        }
 
         const coordStr = `${origin.lng},${origin.lat};${dest.lng},${dest.lat}`;
         const routeRes = await fetchWithTimeout(
@@ -596,39 +1158,25 @@ function initMapPage() {
 
         clearRoute();
         routeActive = true;
+        if (routePlaces.origin !== origin) setRoutePlace("origin", origin);
+        if (routePlaces.destination !== dest)
+          setRoutePlace("destination", dest);
 
         // Làm mờ các tuyến corridor xung quanh để lộ trình hiển thị nổi bật
         mapPolylines.forEach((item) => {
           item.segmentLayers.forEach((l) => l.setStyle({ weight: 4, opacity: 0.18 }));
         });
 
-        const routeLine = L.polyline(coordinates, {
-          pane: "routePane",
-          color: "#2563eb",
-          weight: 6,
-          opacity: 0.95,
-        });
-
-        const startMarker = L.circleMarker([origin.lat, origin.lng], {
-          pane: "routeMarkerPane",
-          radius: 7,
-          color: "#ffffff",
-          weight: 2,
-          fillColor: "#10b981",
-          fillOpacity: 1,
-        });
-
-        const endMarker = L.circleMarker([dest.lat, dest.lng], {
-          pane: "routeMarkerPane",
-          radius: 7,
-          color: "#ffffff",
-          weight: 2,
-          fillColor: "#ef4444",
-          fillOpacity: 1,
-        });
-
-        activeRoute = L.featureGroup([routeLine, startMarker, endMarker]).addTo(map);
-        map.fitBounds(activeRoute.getBounds(), { padding: [50, 50] });
+        activeRoute = createTrafficColoredRoute(coordinates).addTo(map);
+        if (window.innerWidth <= 920) {
+          switchToMapView();
+        }
+        setTimeout(() => {
+          if (activeMap && activeRoute) {
+            activeMap.invalidateSize();
+            activeMap.fitBounds(activeRoute.getBounds(), { padding: [50, 50] });
+          }
+        }, 80);
 
         const profile = VEHICLE_SPEED_PROFILES[vehicle] || VEHICLE_SPEED_PROFILES.car;
         const estDuration = (route.duration / profile.factor);
@@ -639,9 +1187,13 @@ function initMapPage() {
         if (routeCancelButton) routeCancelButton.hidden = false;
         setRouteStatus("Đã vẽ lộ trình di chuyển tối ưu.");
       } catch (err) {
-        setRouteStatus(`Lỗi: ${err.message}`, true);
+        if (currentId !== routeRequestId || isDestroyed) return;
+        setRouteStatus(
+          `Lỗi: ${err instanceof Error ? err.message : "Không thể tìm tuyến đường."}`,
+          true,
+        );
       } finally {
-        routeSubmitButton.disabled = false;
+        if (currentId === routeRequestId) routeSubmitButton.disabled = false;
       }
     });
   }
@@ -769,7 +1321,6 @@ export const mapPage = {
     container.innerHTML = `
       ${renderHeader("/map")}
       ${renderMapView()}
-      ${renderFooter()}
     `;
     initMapPage();
   },
@@ -779,6 +1330,12 @@ export const mapPage = {
     if (backgroundAbortController) {
       backgroundAbortController.abort();
       backgroundAbortController = null;
+    }
+    if (activeRoadPopup) {
+      try {
+        activeRoadPopup.remove();
+      } catch {}
+      activeRoadPopup = null;
     }
     if (activeChart) {
       try {
