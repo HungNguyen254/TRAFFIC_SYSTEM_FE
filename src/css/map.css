@@ -942,21 +942,94 @@
 }
 
 /* ===== RESPONSIVE ===== */
+.map-mobile-tabs {
+  display: none;
+}
+
 @media (max-width: 920px) {
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: 50vh auto;
-    height: auto;
-    min-height: calc(100vh - 61px);
+  .map-mobile-tabs {
+    display: flex;
+    position: sticky;
+    top: 61px;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    z-index: 950;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   }
 
-  .panel {
+  .map-mobile-tab {
+    flex: 1;
+    padding: 12px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--trans-fast);
+  }
+
+  .map-mobile-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: var(--primary-light);
+    font-weight: 700;
+  }
+
+  .layout {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 61px - 46px);
+  }
+
+  /* Khi ở tab Bản đồ: Bản đồ chiếm trọn khung hình, ẩn panel */
+  .layout.view-map .map-area {
+    display: block;
+    height: calc(100vh - 61px - 46px);
+    width: 100%;
+  }
+
+  .layout.view-map .panel {
+    display: none;
+  }
+
+  /* Khi ở tab Tra cứu / Lộ trình: Panel hiển thị trọn vẹn */
+  .layout.view-panel .map-area {
+    display: none;
+  }
+
+  .layout.view-panel .panel {
+    display: block;
+    width: 100%;
+    min-height: calc(100vh - 61px - 46px);
     border-left: none;
-    border-top: 1px solid var(--border);
+    border-top: none;
+    padding: 20px 16px;
   }
 
   .popup-toggle-btn {
-    bottom: calc(50vh + 16px);
+    bottom: 24px;
+  }
+
+  .leaflet-road-popup .leaflet-popup-content-wrapper {
+    max-width: calc(100vw - 32px) !important;
+  }
+
+  .route-actions {
+    flex-direction: column;
+  }
+
+  .route-actions button {
+    width: 100%;
+    min-height: 44px;
   }
 }
 

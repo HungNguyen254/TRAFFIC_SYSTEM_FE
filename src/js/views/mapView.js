@@ -6,7 +6,17 @@
  */
 export function renderMapView() {
   return `
-    <div class="layout">
+    <!-- Thanh chuyển đổi chế độ xem trên di động (Mobile Tab Switcher) -->
+    <div class="map-mobile-tabs" id="map-mobile-tabs" role="tablist" aria-label="Chuyển chế độ xem di động">
+      <button class="map-mobile-tab active" id="tab-show-map" role="tab" aria-selected="true" type="button">
+        Bản đồ giao thông
+      </button>
+      <button class="map-mobile-tab" id="tab-show-panel" role="tab" aria-selected="false" type="button">
+        Chỉ đường & Tra cứu
+      </button>
+    </div>
+
+    <div class="layout view-map" id="map-layout">
       <!-- ===== KHU BẢN ĐỒ ===== -->
       <section class="map-area" aria-label="Bản đồ giao thông thời gian thực">
         <div id="map-canvas"></div>

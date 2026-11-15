@@ -56,6 +56,47 @@ function initMapPage() {
   const routeDuration = document.getElementById("route-duration");
 
   // ============================================================
+  // Mobile Tab Switching (<= 920px)
+  // ============================================================
+  const mapLayout = document.getElementById("map-layout");
+  const tabShowMap = document.getElementById("tab-show-map");
+  const tabShowPanel = document.getElementById("tab-show-panel");
+
+  function switchToMapView() {
+    if (mapLayout) {
+      mapLayout.classList.remove("view-panel");
+      mapLayout.classList.add("view-map");
+    }
+    if (tabShowMap && tabShowPanel) {
+      tabShowMap.classList.add("active");
+      tabShowMap.setAttribute("aria-selected", "true");
+      tabShowPanel.classList.remove("active");
+      tabShowPanel.setAttribute("aria-selected", "false");
+    }
+    setTimeout(() => {
+      if (activeMap) activeMap.invalidateSize();
+    }, 60);
+  }
+
+  function switchToPanelView() {
+    if (mapLayout) {
+      mapLayout.classList.remove("view-map");
+      mapLayout.classList.add("view-panel");
+    }
+    if (tabShowMap && tabShowPanel) {
+      tabShowPanel.classList.add("active");
+      tabShowPanel.setAttribute("aria-selected", "true");
+      tabShowMap.classList.remove("active");
+      tabShowMap.setAttribute("aria-selected", "false");
+    }
+  }
+
+  if (tabShowMap && tabShowPanel) {
+    tabShowMap.addEventListener("click", switchToMapView);
+    tabShowPanel.addEventListener("click", switchToPanelView);
+  }
+
+  // ============================================================
   // Khởi tạo bản đồ với chế độ render Canvas tối ưu
   // ============================================================
   const map = L.map("map-canvas", {
@@ -566,6 +607,7 @@ function initMapPage() {
         li.innerHTML = `<strong>${item.corridor.corridor_name}</strong>${speedTxt}`;
 
         li.addEventListener("click", () => {
+          if (window.innerWidth <= 920) switchToMapView();
           const bounds = L.featureGroup(item.segmentLayers).getBounds();
           map.fitBounds(bounds, { padding: [40, 40] });
           openCorridorPopup(item, bounds.getCenter());
@@ -685,6 +727,7 @@ function initMapPage() {
 
         activeRoute = L.featureGroup([routeLine, startMarker, endMarker]).addTo(map);
         map.fitBounds(activeRoute.getBounds(), { padding: [50, 50] });
+        if (window.innerWidth <= 920) switchToMapView();
 
         const profile = VEHICLE_SPEED_PROFILES[vehicle] || VEHICLE_SPEED_PROFILES.car;
         const estDuration = (route.duration / profile.factor);
