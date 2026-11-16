@@ -5,11 +5,19 @@ import Chart from "chart.js/auto";
 import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderMapView } from "../views/mapView.js";
-import { API_BASE_URL, fetchEdges, parseSpeedKmh, CONGESTION_LEVELS, NO_DATA_COLOR } from "../api.js";
+import {
+  API_BASE_URL,
+  fetchEdges,
+  fetchMapForecast,
+  parseSpeedKmh,
+  CONGESTION_LEVELS,
+  NO_DATA_COLOR,
+} from "../api.js";
 
 let activeMap = null;
 let activeChart = null;
 let activeRoadPopup = null;
+let activeRoadPopupEntry = null;
 let isDestroyed = false;
 let backgroundAbortController = null;
 
@@ -41,6 +49,14 @@ function initMapPage() {
   // DOM Elements
   // ============================================================
   const statusOverlay = document.getElementById("status-overlay");
+  const trafficTimeSlider = document.getElementById("traffic-time-slider");
+  const trafficTimeValue = document.getElementById("traffic-time-value");
+  const trafficTimePrevious = document.getElementById("traffic-time-previous");
+  const trafficTimeNext = document.getElementById("traffic-time-next");
+  const trafficForecastButtons = document.querySelectorAll(
+    ".traffic-forecast-option",
+  );
+  const trafficTimeStatus = document.getElementById("traffic-time-status");
   const roadSearchForm = document.getElementById("road-search");
   const roadQueryInput = document.getElementById("road-query");
   const searchResultsUl = document.getElementById("search-results");
@@ -142,6 +158,7 @@ function initMapPage() {
   }, 300);
 
   let activeRoute = null;
+  let activeRoutePoints = null;
   let activeRouteEstimate = null;
   let routeActive = false;
   let routeRequestId = 0;
@@ -494,6 +511,10 @@ function initMapPage() {
   };
 
   const mapPolylines = [];
+  let corridorEntries = [];
+  let trafficRequestId = 0;
+  let displayedTrafficIndex = 0;
+  let displayedTrafficMode = "current";
   const trafficLayerGroup = L.featureGroup().addTo(map);
   const ROUTE_TRAFFIC_MATCH_DISTANCE_METERS = 35;
 
@@ -756,22 +777,271 @@ function initMapPage() {
       .setLatLng(latlng)
       .setContent(popupHtml)
       .openOn(map);
+    activeRoadPopupEntry = entry;
 
     activeRoadPopup.on("remove", () => {
       activeRoadPopup = null;
+      activeRoadPopupEntry = null;
     });
 
     updatePopupContent(entry);
 
-    const popupEl = activeRoadPopup.getElement();
-    const chartBtn = popupEl?.querySelector(".road-popup-chart-btn");
-    if (chartBtn) {
-      chartBtn.addEventListener("click", () => {
-        updatePopupContent(entry);
-        if (popupOverlay) popupOverlay.hidden = false;
-        showChartPage();
+    bindCorridorPopupChartButton(entry);
+  }
+
+  function bindCorridorPopupChartButton(entry) {
+    const chartBtn = activeRoadPopup
+      ?.getElement()
+      ?.querySelector(".road-popup-chart-btn");
+    if (!chartBtn) return;
+    chartBtn.addEventListener("click", () => {
+      updatePopupContent(entry);
+      if (popupOverlay) popupOverlay.hidden = false;
+      showChartPage();
+    });
+  }
+
+  function setTrafficTimeStatus(message, isError = false) {
+    if (!trafficTimeStatus) return;
+    trafficTimeStatus.textContent = message;
+    trafficTimeStatus.classList.toggle("error", isError);
+  }
+
+  function getTrafficMode(index) {
+    if (index === 0) return "current";
+    return `hour:${index - 1}`;
+  }
+
+  function getTrafficTimeLabel(index) {
+    if (index === 0) return "Hiện tại";
+    return `${String(index - 1).padStart(2, "0")}:00`;
+  }
+
+  function setActiveTrafficMode(mode) {
+    displayedTrafficMode = mode;
+    const isForecast = mode.startsWith("forecast:");
+    trafficForecastButtons.forEach((button) => {
+      const active =
+        isForecast &&
+        Number(button.dataset.forecastMinutes) ===
+          Number(mode.slice("forecast:".length));
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    if (trafficTimeValue) {
+      trafficTimeValue.textContent = isForecast
+        ? `Dự báo +${mode.slice("forecast:".length)} phút`
+        : getTrafficTimeLabel(displayedTrafficIndex);
+    }
+  }
+
+  function updateTrafficSlider(index) {
+    if (!trafficTimeSlider) return;
+    const boundedIndex = Math.max(0, Math.min(24, Number(index)));
+    trafficTimeSlider.value = String(boundedIndex);
+    trafficTimeSlider.setAttribute("aria-valuetext", getTrafficTimeLabel(boundedIndex));
+    if (trafficTimeValue) {
+      trafficTimeValue.textContent = getTrafficTimeLabel(boundedIndex);
+    }
+    if (trafficTimePrevious) trafficTimePrevious.disabled = boundedIndex === 0;
+    if (trafficTimeNext) trafficTimeNext.disabled = boundedIndex === 24;
+  }
+
+  function applyTrafficEdges(updatedEdges) {
+    const edgesById = new Map(
+      updatedEdges.map((edge) => [String(edge.edge_id), edge]),
+    );
+    let updatedCount = 0;
+
+    corridorEntries.forEach((entry) => {
+      entry.corridor.edges.forEach((edge, index) => {
+        const updated = edgesById.get(String(edge.edge_id));
+        if (!updated) return;
+
+        edge.congestion_level = updated.congestion_level;
+        edge.color_code = updated.color_code;
+        edge.speed = updated.speed;
+        edge.speed_num = updated.speed_num;
+        edge.updated_at = updated.updated_at;
+        entry.segmentLayers[index].setStyle({
+          color: edge.color_code || NO_DATA_COLOR,
+          weight: routeActive ? 4 : LINE_STYLE.weight,
+          opacity: routeActive ? 0.12 : LINE_STYLE.opacity,
+        });
+        updatedCount += 1;
+      });
+
+      const stats = computeCorridorStats(entry.corridor, entry.distances);
+      entry.totalKm = stats ? stats.totalKm : null;
+      entry.avgSpeed = stats ? stats.avgSpeed : null;
+    });
+
+    if (!updatedCount) {
+      throw new Error("Không có đoạn đường nào khớp với dữ liệu được tải.");
+    }
+
+    if (activeRoadPopup && activeRoadPopupEntry) {
+      activeRoadPopup.setContent(renderCorridorPopupContent(activeRoadPopupEntry));
+      updatePopupContent(activeRoadPopupEntry);
+      bindCorridorPopupChartButton(activeRoadPopupEntry);
+    }
+
+    if (activeRoute && activeRoutePoints) {
+      map.removeLayer(activeRoute);
+      activeRoute = createTrafficColoredRoute(activeRoutePoints).addTo(map);
+    }
+  }
+
+  async function loadTrafficTime(mode) {
+    if (!trafficTimeSlider) return;
+    const requestId = ++trafficRequestId;
+    trafficTimeSlider.disabled = true;
+    if (trafficTimePrevious) trafficTimePrevious.disabled = true;
+    if (trafficTimeNext) trafficTimeNext.disabled = true;
+    trafficForecastButtons.forEach((button) => {
+      button.disabled = true;
+    });
+    setTrafficTimeStatus("Đang tải dữ liệu giao thông...");
+
+    try {
+      let updatedEdges;
+      let statusMessage;
+
+      if (mode === "current") {
+        updatedEdges = await fetchEdges();
+        statusMessage = `Tình trạng hiện tại · ${new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`;
+      } else if (mode.startsWith("hour:")) {
+        const hour = Number(mode.slice("hour:".length));
+        if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+          throw new Error("Khung giờ được chọn không hợp lệ.");
+        }
+        updatedEdges = await fetchEdges({ hour });
+        statusMessage = `Tình trạng theo khung giờ ${String(hour).padStart(2, "0")}:00`;
+      } else if (mode.startsWith("forecast:")) {
+        const minutesAhead = Number(mode.slice("forecast:".length));
+        const forecast = await fetchMapForecast({ minutes_ahead: minutesAhead });
+        updatedEdges = forecast.edges.map((edge) => {
+          const level = Number(edge.congestion_level);
+          const levelInfo = CONGESTION_LEVELS[level];
+          if (!levelInfo || !Number.isFinite(Number(edge.predicted_speed))) {
+            throw new Error("Dữ liệu dự báo cho một đoạn đường không hợp lệ.");
+          }
+          const speed = Number(edge.predicted_speed);
+          return {
+            edge_id: String(edge.edge_id),
+            congestion_level: level,
+            color_code: levelInfo.color,
+            speed: `${speed} km/h`,
+            speed_num: speed,
+            updated_at: forecast.target_time,
+          };
+        });
+        const targetTime = new Date(forecast.target_time).toLocaleTimeString(
+          "vi-VN",
+          { hour: "2-digit", minute: "2-digit" },
+        );
+        statusMessage = `Dự báo sau ${minutesAhead} phút · khoảng ${targetTime}`;
+      } else {
+        throw new Error("Mốc thời gian được chọn không được hỗ trợ.");
+      }
+
+      if (requestId !== trafficRequestId || isDestroyed) return;
+      applyTrafficEdges(updatedEdges);
+      if (!mode.startsWith("forecast:")) {
+        displayedTrafficIndex =
+          mode === "current" ? 0 : Number(mode.slice("hour:".length)) + 1;
+        updateTrafficSlider(displayedTrafficIndex);
+      }
+      setActiveTrafficMode(mode);
+      setTrafficTimeStatus(statusMessage);
+    } catch (error) {
+      if (requestId !== trafficRequestId || isDestroyed) return;
+      updateTrafficSlider(displayedTrafficIndex);
+      setActiveTrafficMode(displayedTrafficMode);
+      setTrafficTimeStatus(
+        error instanceof Error
+          ? `Không thể tải dữ liệu: ${error.message}`
+          : "Không thể tải dữ liệu giao thông.",
+        true,
+      );
+    } finally {
+      if (requestId === trafficRequestId && !isDestroyed) {
+        trafficTimeSlider.disabled = false;
+        trafficForecastButtons.forEach((button) => {
+          button.disabled = false;
+        });
+        updateTrafficSlider(trafficTimeSlider.value);
+      }
+    }
+  }
+
+  trafficTimeSlider?.addEventListener("input", () => {
+    updateTrafficSlider(trafficTimeSlider.value);
+    if (displayedTrafficMode.startsWith("forecast:")) {
+      trafficForecastButtons.forEach((button) => {
+        button.classList.remove("active");
+        button.setAttribute("aria-pressed", "false");
       });
     }
+  });
+  trafficTimeSlider?.addEventListener("change", () => {
+    loadTrafficTime(getTrafficMode(Number(trafficTimeSlider.value)));
+  });
+
+  function moveTrafficSlider(direction) {
+    if (!trafficTimeSlider || trafficTimeSlider.disabled) return;
+    const nextIndex = Math.max(
+      0,
+      Math.min(24, Number(trafficTimeSlider.value) + direction),
+    );
+    if (nextIndex === Number(trafficTimeSlider.value)) return;
+    trafficTimeSlider.value = String(nextIndex);
+    updateTrafficSlider(nextIndex);
+    loadTrafficTime(getTrafficMode(nextIndex));
+  }
+
+  trafficTimePrevious?.addEventListener("click", () => moveTrafficSlider(-1));
+  trafficTimeNext?.addEventListener("click", () => moveTrafficSlider(1));
+  trafficForecastButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const minutes = Number(button.dataset.forecastMinutes);
+      if (minutes !== 30 && minutes !== 60) {
+        setTrafficTimeStatus("Mốc dự báo không hợp lệ.", true);
+        return;
+      }
+      loadTrafficTime(`forecast:${minutes}`);
+    });
+  });
+
+  function setTrafficSliderEnabled(enabled) {
+    if (trafficTimeSlider) trafficTimeSlider.disabled = !enabled;
+    trafficForecastButtons.forEach((button) => {
+      button.disabled = !enabled;
+    });
+    updateTrafficSlider(trafficTimeSlider?.value ?? displayedTrafficIndex);
+    if (!enabled) {
+      if (trafficTimePrevious) trafficTimePrevious.disabled = true;
+      if (trafficTimeNext) trafficTimeNext.disabled = true;
+    }
+  }
+
+  updateTrafficSlider(0);
+
+  // Keep the map time control unavailable until its initial road data is ready.
+  setTrafficSliderEnabled(false);
+
+  function setInitialTrafficTime() {
+    displayedTrafficIndex = 0;
+    updateTrafficSlider(displayedTrafficIndex);
+    setActiveTrafficMode("current");
+    setTrafficSliderEnabled(true);
+    setTrafficTimeStatus(`Tình trạng hiện tại · ${new Date().toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`);
   }
 
   // Khởi động nạp dữ liệu và vẽ bản đồ tối ưu
@@ -789,10 +1059,11 @@ function initMapPage() {
       }
 
       const corridors = groupByCorridor(edges);
-      const corridorEntries = corridors.map((corridor) => drawCorridorImmediate(corridor));
+      corridorEntries = corridors.map((corridor) => drawCorridorImmediate(corridor));
 
       // Tự động căn chỉnh bản đồ theo các tuyến đường thực tế
       const allLayers = corridorEntries.flatMap((c) => c.segmentLayers);
+      setInitialTrafficTime();
       if (allLayers.length > 0) {
         try {
           const group = L.featureGroup(allLayers);
@@ -1086,6 +1357,7 @@ function initMapPage() {
       map.removeLayer(activeRoute);
       activeRoute = null;
     }
+    activeRoutePoints = null;
     activeRouteEstimate = null;
     routeActive = false;
     mapPolylines.forEach((item) => {
@@ -1167,7 +1439,8 @@ function initMapPage() {
           item.segmentLayers.forEach((l) => l.setStyle({ weight: 4, opacity: 0.18 }));
         });
 
-        activeRoute = createTrafficColoredRoute(coordinates).addTo(map);
+        activeRoutePoints = coordinates;
+        activeRoute = createTrafficColoredRoute(activeRoutePoints).addTo(map);
         if (window.innerWidth <= 920) {
           switchToMapView();
         }
@@ -1336,6 +1609,7 @@ export const mapPage = {
         activeRoadPopup.remove();
       } catch {}
       activeRoadPopup = null;
+      activeRoadPopupEntry = null;
     }
     if (activeChart) {
       try {
