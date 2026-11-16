@@ -201,10 +201,16 @@ export const loginPage = {
       const fullName = document.getElementById("reg-fullname").value.trim();
       const email = document.getElementById("reg-email").value.trim();
       const password = document.getElementById("reg-password").value;
+      const confirmPassword = document.getElementById("reg-confirm-password").value;
       const passwordError = getPasswordValidationMessage(password);
       if (passwordError) {
         message.style.color = "#dc2626";
         message.textContent = `Lỗi: ${passwordError}`;
+        return;
+      }
+      if (password !== confirmPassword) {
+        message.style.color = "#dc2626";
+        message.textContent = "Lỗi: Mật khẩu xác nhận Không khớp";
         return;
       }
       message.textContent = "Đang xử lý...";
@@ -217,6 +223,7 @@ export const loginPage = {
         });
         message.style.color = "#16a34a";
         message.textContent = "Tạo tài khoản thành công! Hãy đăng nhập.";
+        registerForm.reset();
         setTimeout(() => switchTab(true), 800);
       } catch (err) {
         message.style.color = "#dc2626";
