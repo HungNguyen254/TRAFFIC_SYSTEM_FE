@@ -258,6 +258,19 @@ export async function fetchForecast({ street_name, edge_id, weather = "sunny", m
   };
 }
 
+export async function fetchMapForecast({ minutes_ahead, weather = "sunny" }) {
+  const data = await request("/predictions/forecast/map", {
+    method: "POST",
+    body: { minutes_ahead, weather },
+  });
+
+  if (!Array.isArray(data?.edges)) {
+    throw new Error("API dự báo bản đồ trả về dữ liệu không hợp lệ.");
+  }
+
+  return data;
+}
+
 /**
  * Tìm lộ trình qua Backend API
  */
