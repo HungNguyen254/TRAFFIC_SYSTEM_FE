@@ -87,7 +87,7 @@ export function renderLoginView() {
           </div>
 
           <div class="form-field">
-            <label for="reg-password">Mật khẩu mới</label>
+            <label for="reg-password">Mật khẩu</label>
             <input
               id="reg-password"
               type="password"
@@ -99,6 +99,18 @@ export function renderLoginView() {
             <small class="password-hint">
               Ít nhất 6 ký tự, gồm 1 chữ hoa, 1 chữ số và 1 ký tự đặc biệt.
             </small>
+          </div>
+
+          <div class="form-field">
+            <label for="reg-confirm-password">Xác nhận mật khẩu</label>
+            <input
+              id="reg-confirm-password"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Xác nhận lại mật khẩu"
+              minlength="6"
+              required
+            />
           </div>
 
           <button class="btn auth-submit" type="submit">
