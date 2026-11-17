@@ -1,5 +1,5 @@
 // File: src/js/api.js
-// Client API & Chuẩn hoá dữ liệu kết nối trực tiếp với Backend FastAPI
+// Client API và Chuẩn hoá dữ liệu kết nối trực tiếp với Backend FastAPI
 
 import { CONGESTION_LEVELS, NO_DATA_COLOR } from "./constants/traffic.js";
 
