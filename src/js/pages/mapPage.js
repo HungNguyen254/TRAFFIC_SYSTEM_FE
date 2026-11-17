@@ -1128,18 +1128,271 @@ function initMapPage() {
   // ============================================================
   // Tìm kiếm theo tên trục / tên đường
   // ============================================================
+  // ============================================================
+  // ĐỊA ĐIỂM YÊU THÍCH (Favorites)
+  // ============================================================
+  const FAVORITES_STORAGE_KEY = "traffic_favorite_places";
+
+  function findMatchingCorridors(query) {
+    const normalizedQuery = query.trim().toLocaleLowerCase("vi");
+    if (!normalizedQuery) return [];
+
+    return mapPolylines.filter(
+      ({ corridor }) =>
+        corridor.corridor_name.toLocaleLowerCase("vi").includes(normalizedQuery) ||
+        corridor.edges.some((edge) =>
+          edge.street_name?.toLocaleLowerCase("vi").includes(normalizedQuery),
+        ),
+    );
+  }
+
+  function loadFavoritePlaces() {
+    try {
+      const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveFavoritePlaces(list) {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(list));
+  }
+
+  const favoritesOverlay = document.getElementById("favorites-overlay");
+  const favoritesToggleBtn = document.getElementById("favorites-toggle-btn");
+  const favoritesCloseBtn = document.getElementById("favorites-close");
+  const favoriteSaveBtn = document.getElementById("favorite-save-btn");
+  const roadQueryFavInput = document.getElementById("road-query");
+  const favoritesListUl = document.getElementById("favorites-list");
+  const favoritesStatus = document.getElementById("favorites-status");
+
+  function setFavoritesStatus(message, isError = false) {
+    if (!favoritesStatus) return;
+    favoritesStatus.textContent = message;
+    favoritesStatus.classList.toggle("error", isError);
+  }
+
+  function renderFavoritePlaces() {
+    if (!favoritesListUl) return;
+    const places = loadFavoritePlaces();
+    favoritesListUl.replaceChildren();
+
+    if (!places.length) {
+      const empty = document.createElement("li");
+      empty.className = "favorites-empty";
+      empty.textContent = "Chưa có tuyến đường hoặc địa điểm yêu thích nào.";
+      favoritesListUl.append(empty);
+      return;
+    }
+
+    places.forEach((place) => {
+      const li = document.createElement("li");
+      li.className = "favorites-item";
+
+      const info = document.createElement("div");
+      info.className = "favorites-item-info";
+      const name = document.createElement("strong");
+      name.textContent = place.name;
+      const addr = document.createElement("small");
+      addr.textContent = place.display_name || place.corridor_name;
+      info.append(name, addr);
+
+      const gotoBtn = document.createElement("button");
+      gotoBtn.className = "favorites-goto";
+      gotoBtn.type = "button";
+      gotoBtn.textContent = "Xem trên bản đồ";
+      gotoBtn.addEventListener("click", () => {
+        if (window.innerWidth <= 920) switchToMapView();
+        if (place.type === "corridor") {
+          const entry = mapPolylines.find(
+            (item) =>
+              item.corridor.corridor_name === place.corridor_name,
+          );
+          if (!entry || !entry.segmentLayers.length) {
+            setFavoritesStatus(
+              `Không tìm thấy tuyến "${place.corridor_name}" trên bản đồ.`,
+              true,
+            );
+            return;
+          }
+          const bounds = L.featureGroup(entry.segmentLayers).getBounds();
+          if (!bounds.isValid()) {
+            setFavoritesStatus(
+              `Không thể xác định vị trí tuyến "${place.corridor_name}".`,
+              true,
+            );
+            return;
+          }
+          map.fitBounds(bounds, { padding: [40, 40] });
+          openCorridorPopup(entry, bounds.getCenter());
+          closeFavoritesPopup();
+          return;
+        }
+
+        map.setView([place.lat, place.lng], 16);
+        L.circleMarker([place.lat, place.lng], {
+          radius: 10,
+          color: "#ffffff",
+          weight: 3,
+          fillColor: "#e11d48",
+          fillOpacity: 1,
+        })
+          .bindTooltip(place.name, { direction: "top", offset: [0, -8] })
+          .addTo(map);
+        closeFavoritesPopup();
+      });
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "favorites-remove";
+      removeBtn.type = "button";
+      removeBtn.textContent = "Xóa";
+      removeBtn.setAttribute("aria-label", `Xóa ${place.name}`);
+      removeBtn.addEventListener("click", () => {
+        try {
+          saveFavoritePlaces(
+            loadFavoritePlaces().filter((p) => p.id !== place.id),
+          );
+          renderFavoritePlaces();
+          setFavoritesStatus(`Đã xóa "${place.name}" khỏi danh sách yêu thích.`);
+        } catch (err) {
+          setFavoritesStatus(
+            err?.message || "Không thể xóa mục yêu thích.",
+            true,
+          );
+        }
+      });
+
+      li.append(info, gotoBtn, removeBtn);
+      favoritesListUl.append(li);
+    });
+  }
+
+  function openFavoritesPopup() {
+    if (!favoritesOverlay) return;
+    favoritesOverlay.hidden = false;
+    renderFavoritePlaces();
+    setFavoritesStatus("");
+  }
+
+  function closeFavoritesPopup() {
+    if (favoritesOverlay) favoritesOverlay.hidden = true;
+  }
+
+  if (favoritesToggleBtn)
+    favoritesToggleBtn.addEventListener("click", openFavoritesPopup);
+  if (favoritesCloseBtn)
+    favoritesCloseBtn.addEventListener("click", closeFavoritesPopup);
+  if (favoritesOverlay) {
+    favoritesOverlay.addEventListener("click", (e) => {
+      if (e.target === favoritesOverlay) closeFavoritesPopup();
+    });
+  }
+
+  if (favoriteSaveBtn) {
+    favoriteSaveBtn.addEventListener("click", async () => {
+      const query = roadQueryFavInput?.value.trim();
+      if (!query) {
+        setRouteStatus(
+          "Hãy nhập tên đường hoặc địa điểm trước khi thêm vào yêu thích.",
+          true,
+        );
+        return;
+      }
+
+      favoriteSaveBtn.disabled = true;
+      favoriteSaveBtn.setAttribute("aria-pressed", "false");
+      try {
+        const corridorEntry = findMatchingCorridors(query)[0];
+        if (corridorEntry) {
+          const corridorName = corridorEntry.corridor.corridor_name;
+          const list = loadFavoritePlaces();
+          if (
+            list.some(
+              (item) =>
+                item.type === "corridor" &&
+                item.corridor_name.toLocaleLowerCase("vi") ===
+                  corridorName.toLocaleLowerCase("vi"),
+            )
+          ) {
+            favoriteSaveBtn.setAttribute("aria-pressed", "true");
+            setRouteStatus(`Tuyến "${corridorName}" đã có trong yêu thích.`);
+            return;
+          }
+
+          const streetNames = [
+            ...new Set(
+              corridorEntry.corridor.edges
+                .map((edge) => edge.street_name)
+                .filter(Boolean),
+            ),
+          ];
+          list.push({
+            id: `fav_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            type: "corridor",
+            name: corridorName,
+            corridor_name: corridorName,
+            display_name: streetNames.join(", ") || "Tuyến đường",
+          });
+          saveFavoritePlaces(list);
+          favoriteSaveBtn.setAttribute("aria-pressed", "true");
+          setRouteStatus(`Đã thêm tuyến "${corridorName}" vào yêu thích.`);
+          setFavoritesStatus(`Đã thêm tuyến "${corridorName}" vào yêu thích.`);
+          renderFavoritePlaces();
+          return;
+        }
+
+        const place = await geocodeAddress(query);
+        const list = loadFavoritePlaces();
+        if (
+          list.some(
+            (p) =>
+              Math.abs(p.lat - place.lat) < 1e-6 &&
+              Math.abs(p.lng - place.lng) < 1e-6,
+          )
+        ) {
+          setRouteStatus("Địa điểm này đã có trong danh sách yêu thích.", true);
+          return;
+        }
+        list.push({
+          id: `fav_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          name: query.slice(0, 80),
+          display_name: place.display_name,
+          lat: place.lat,
+          lng: place.lng,
+        });
+        saveFavoritePlaces(list);
+        favoriteSaveBtn.setAttribute("aria-pressed", "true");
+        setRouteStatus(`Đã thêm "${query}" vào địa điểm yêu thích.`);
+        setFavoritesStatus(`Đã thêm "${query}" vào địa điểm yêu thích.`);
+        renderFavoritePlaces();
+      } catch (err) {
+        setRouteStatus(
+          err?.message || "Không thể thêm địa điểm. Vui lòng thử lại.",
+          true,
+        );
+      } finally {
+        favoriteSaveBtn.disabled = false;
+      }
+    });
+  }
+
+  if (roadQueryFavInput) {
+    roadQueryFavInput.addEventListener("input", () => {
+      favoriteSaveBtn?.setAttribute("aria-pressed", "false");
+    });
+  }
+
+  // ============================================================
   if (roadSearchForm) {
     roadSearchForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const query = roadQueryInput.value.trim().toLowerCase();
+      const query = roadQueryInput.value.trim();
       if (!query) return;
 
       searchResultsUl.innerHTML = "";
-      const matched = mapPolylines.filter(
-        (item) =>
-          item.corridor.corridor_name.toLowerCase().includes(query) ||
-          item.corridor.edges.some((e) => e.street_name.toLowerCase().includes(query)),
-      );
+      const matched = findMatchingCorridors(query);
 
       if (matched.length === 0) {
         searchResultsUl.innerHTML = `<li style="padding: 10px; color: var(--text-muted); font-size: 13px;">Không tìm thấy tuyến đường phù hợp.</li>`;

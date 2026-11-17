@@ -441,6 +441,166 @@
   gap: 8px;
 }
 
+/* ===== NÚT GÓC TRÁI BẢN ĐỒ (DỮ LIỆU + YÊU THÍCH) ===== */
+.map-bottom-actions {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  z-index: 1000;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.map-bottom-actions .popup-toggle-btn {
+  position: static;
+}
+
+/* ===== NÚT VUÔNG TRÁI TIM (LƯU NHANH YÊU THÍCH - ĐỌC TỪ Ô TRA CỨU) ===== */
+.favorite-square-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: #ffffff;
+  color: #e11d48;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--trans-fast);
+}
+
+
+
+.favorite-square-btn:hover {
+  border-color: #e11d48;
+  background: #fff1f2;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.favorite-square-btn[aria-pressed="true"] {
+  background: #e11d48;
+  border-color: #e11d48;
+}
+
+.favorite-square-btn[aria-pressed="true"] svg {
+  fill: #ffffff;
+  stroke: #ffffff;
+}
+
+.favorite-square-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ===== DANH SÁCH ĐỊA ĐIỂM YÊU THÍCH ===== */
+.favorites-box {
+  width: 560px;
+}
+
+.favorites-status {
+  min-height: 18px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.favorites-status.error {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.favorites-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.favorites-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+}
+
+.favorites-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.favorites-item-info strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.favorites-item-info small {
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorites-goto {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--trans-fast);
+}
+
+.favorites-goto:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.favorites-remove {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #fee2e2;
+  color: #b91c1c;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--trans-fast);
+}
+
+.favorites-remove:hover {
+  background: #fecaca;
+}
+
+.favorites-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
 .traffic-time-controls {
   display: flex;
   flex-direction: column;
