@@ -41,6 +41,35 @@ export function renderAdminView() {
             ></p>
           </article>
 
+          <!-- IMPORT DỮ LIỆU GIAO THÔNG TỪ CSV -->
+          <article class="card admin-card">
+            <div class="section-eyebrow">DỮ LIỆU GIAO THÔNG</div>
+            <h2>Upload dữ liệu CSV</h2>
+            <p>
+              Tải lên file CSV quan trắc giao thông. Hệ thống kiểm tra từng dòng, liệt kê dòng lỗi kèm lý do và tự động loại các bản ghi trùng.
+            </p>
+            <form id="csv-upload-form" style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;" novalidate>
+              <input
+                class="input"
+                id="csv-file-input"
+                name="file"
+                type="file"
+                accept=".csv,text/csv"
+                aria-label="Chọn file CSV dữ liệu giao thông"
+                required
+              />
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted);">
+                <input id="csv-truncate-input" type="checkbox" />
+                Xoá toàn bộ dữ liệu cũ trước khi import
+              </label>
+              <button class="btn" id="csv-upload-btn" type="submit" style="width: 100%;">
+                Tải lên &amp; kiểm tra dữ liệu
+              </button>
+            </form>
+            <p class="form-message" id="csv-upload-message" role="status" aria-live="polite"></p>
+            <div id="csv-import-report" hidden></div>
+          </article>
+
           <!-- TRẠNG THÁI PHIÊN -->
           <article class="card admin-card">
             <div class="section-eyebrow">PHIÊN LÀM VIỆC</div>

@@ -182,6 +182,46 @@ export async function request(
 }
 
 /**
+ * Upload file CSV dữ liệu giao thông (multipart/form-data) - yêu cầu quyền Admin
+ * @param {File} file
+ * @param {{ truncate?: boolean, error_limit?: number }} [options]
+ * @returns {Promise<object>} Báo cáo import: inserted_rows, invalid_rows, errors, duplicates...
+ */
+export async function uploadTrafficCsv(file, { truncate = false, error_limit } = {}) {
+  const headers = { Accept: "application/json" };
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const form = new FormData();
+  form.append("file", file, file.name);
+
+  const params = new URLSearchParams();
+  if (truncate) params.set("truncate", "true");
+  if (error_limit !== undefined) params.set("error_limit", String(error_limit));
+  const query = params.toString() ? `?${params.toString()}` : "";
+
+  const res = await fetch(`${API_BASE_URL}/admin/traffic-data/import-csv${query}`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+
+  let payload = null;
+  try {
+    payload = await res.json();
+  } catch {
+    /* body rỗng hoặc text */
+  }
+
+  if (!res.ok) {
+    const message = payload?.message || payload?.detail || `HTTP ${res.status}`;
+    if (res.status === 401) clearSession();
+    throw new Error(message);
+  }
+  return payload?.data ?? payload;
+}
+
+/**
  * Lấy dữ liệu trực tiếp từ Backend API (không dùng mock fallback)
  * @param {object} [options]
  * @param {number} [options.hour]
