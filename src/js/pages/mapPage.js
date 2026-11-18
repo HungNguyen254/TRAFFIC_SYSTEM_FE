@@ -5,6 +5,11 @@ import Chart from "chart.js/auto";
 import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderMapView } from "../views/mapView.js";
+import { getUser, isLoggedIn } from "../api.js";
+import {
+  addSearchHistoryEntry,
+  loadSearchHistory,
+} from "../services/searchHistory.js";
 import {
   API_BASE_URL,
   fetchEdges,
@@ -60,6 +65,7 @@ function initMapPage() {
   const roadSearchForm = document.getElementById("road-search");
   const roadQueryInput = document.getElementById("road-query");
   const searchResultsUl = document.getElementById("search-results");
+  const searchStatus = document.getElementById("search-status");
   const routeForm = document.getElementById("route-form");
   const routeOriginInput = document.getElementById("route-origin");
   const routeDestinationInput = document.getElementById("route-destination");
@@ -175,6 +181,12 @@ function initMapPage() {
     if (!routeStatus) return;
     routeStatus.textContent = message;
     routeStatus.classList.toggle("error", isError);
+  }
+
+  function setSearchStatus(message, isError = false) {
+    if (!searchStatus) return;
+    searchStatus.textContent = message;
+    searchStatus.classList.toggle("error", isError);
   }
 
   async function fetchWithTimeout(url, timeoutMs = 12000, signal = null) {
@@ -1160,6 +1172,125 @@ function initMapPage() {
     localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(list));
   }
 
+  const searchHistoryUserId = isLoggedIn() ? getUser()?.user_id : null;
+  const searchHistoryToggleBtn = document.getElementById("search-history-toggle");
+  const searchHistoryOverlay = document.getElementById("search-history-overlay");
+  const searchHistoryCloseBtn = document.getElementById("search-history-close");
+  const searchHistoryList = document.getElementById("search-history-list");
+  const searchHistoryStatus = document.getElementById("search-history-status");
+  if (searchHistoryToggleBtn) {
+    searchHistoryToggleBtn.hidden = !searchHistoryUserId;
+  }
+
+  function setSearchHistoryStatus(message, isError = false) {
+    if (!searchHistoryStatus) return;
+    searchHistoryStatus.textContent = message;
+    searchHistoryStatus.classList.toggle("error", isError);
+  }
+
+  function closeSearchHistoryPopup() {
+    if (searchHistoryOverlay) searchHistoryOverlay.hidden = true;
+  }
+
+  function repeatSearch(entry) {
+    closeSearchHistoryPopup();
+    if (entry.type === "route") {
+      routeOriginInput.value = entry.origin;
+      routeDestinationInput.value = entry.destination;
+      routeVehicleSelect.value = entry.vehicle;
+      routeForm.requestSubmit();
+      return;
+    }
+
+    roadQueryInput.value = entry.query;
+    roadSearchForm.requestSubmit();
+  }
+
+  function renderSearchHistory() {
+    if (!searchHistoryUserId || !searchHistoryList) return;
+    const history = loadSearchHistory(searchHistoryUserId);
+    searchHistoryList.replaceChildren();
+
+    if (!history.length) {
+      const empty = document.createElement("li");
+      empty.className = "favorites-empty";
+      empty.textContent = "Bạn chưa có lịch sử tìm kiếm nào.";
+      searchHistoryList.append(empty);
+      return;
+    }
+
+    history.forEach((entry) => {
+      const item = document.createElement("li");
+      item.className = "favorites-item";
+
+      const info = document.createElement("div");
+      info.className = "search-history-info";
+      const title = document.createElement("strong");
+      title.textContent =
+        entry.type === "route"
+          ? `${entry.origin} → ${entry.destination}`
+          : entry.query;
+      const details = document.createElement("small");
+      const typeLabel = entry.type === "route" ? "Tuyến đường" : "Địa điểm";
+      details.textContent = `${typeLabel} · ${new Date(entry.createdAt).toLocaleString("vi-VN")}`;
+      info.append(title, details);
+
+      const repeatButton = document.createElement("button");
+      repeatButton.className = "favorites-goto";
+      repeatButton.type = "button";
+      repeatButton.textContent = "Tìm lại";
+      repeatButton.addEventListener("click", () => repeatSearch(entry));
+
+      item.append(info, repeatButton);
+      searchHistoryList.append(item);
+    });
+  }
+
+  function recordSearchHistory(entry) {
+    if (!searchHistoryUserId) return;
+    try {
+      addSearchHistoryEntry(searchHistoryUserId, entry);
+      if (searchHistoryOverlay && !searchHistoryOverlay.hidden) {
+        renderSearchHistory();
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Không thể lưu lịch sử tìm kiếm.";
+      setSearchHistoryStatus(message, true);
+      if (entry.type === "route") {
+        setRouteStatus(`Đã vẽ tuyến nhưng ${message}`, true);
+      } else {
+        setSearchStatus(message, true);
+      }
+    }
+  }
+
+  function openSearchHistoryPopup() {
+    if (!searchHistoryOverlay) return;
+    searchHistoryOverlay.hidden = false;
+    setSearchHistoryStatus("");
+    try {
+      renderSearchHistory();
+    } catch (error) {
+      setSearchHistoryStatus(
+        error instanceof Error ? error.message : "Không thể tải lịch sử tìm kiếm.",
+        true,
+      );
+    }
+  }
+
+  if (searchHistoryToggleBtn) {
+    searchHistoryToggleBtn.addEventListener("click", openSearchHistoryPopup);
+  }
+  if (searchHistoryCloseBtn) {
+    searchHistoryCloseBtn.addEventListener("click", closeSearchHistoryPopup);
+  }
+  if (searchHistoryOverlay) {
+    searchHistoryOverlay.addEventListener("click", (event) => {
+      if (event.target === searchHistoryOverlay) closeSearchHistoryPopup();
+    });
+  }
+
   const favoritesOverlay = document.getElementById("favorites-overlay");
   const favoritesToggleBtn = document.getElementById("favorites-toggle-btn");
   const favoritesCloseBtn = document.getElementById("favorites-close");
@@ -1391,6 +1522,7 @@ function initMapPage() {
       const query = roadQueryInput.value.trim();
       if (!query) return;
 
+      recordSearchHistory({ type: "place", query });
       searchResultsUl.innerHTML = "";
       const matched = findMatchingCorridors(query);
 
@@ -1646,6 +1778,12 @@ function initMapPage() {
         return;
       }
 
+      recordSearchHistory({
+        type: "route",
+        origin: originQuery,
+        destination: destQuery,
+        vehicle,
+      });
       const currentId = ++routeRequestId;
       routeSubmitButton.disabled = true;
       setRouteStatus("Đang định vị địa điểm và tính lộ trình tối ưu...");

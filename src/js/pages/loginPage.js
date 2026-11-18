@@ -3,6 +3,22 @@ import { renderHeader, updateHeaderAuth } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderLoginView } from "../views/loginView.js";
 import { clearSession, isLoggedIn, request, saveSession } from "../api.js";
+import Toastify from "toastify-js";
+import "toastify-js/src/toastify.css";
+
+function showAuthSuccessToast(message) {
+  Toastify({
+    text: message,
+    duration: 3000,
+    close: true,
+    gravity: "top",
+    position: "right",
+    stopOnFocus: true,
+    style: {
+      background: "linear-gradient(to right, #16a34a, #15803d)",
+    },
+  }).showToast();
+}
 
 function getPasswordValidationMessage(password) {
   if (password.length < 6) return "Mật khẩu phải có ít nhất 6 ký tự.";
@@ -185,7 +201,7 @@ export const loginPage = {
         });
         updateHeaderAuth();
         message.style.color = "#16a34a";
-        message.textContent = "Đăng nhập thành công, đang chuyển hướng...";
+        showAuthSuccessToast("Đăng nhập thành công!");
         const target = redirectTarget && redirectTarget.startsWith("/") ? decodeURIComponent(redirectTarget) : "/";
         setTimeout(() => navigateTo(target), 400);
       } catch (err) {
@@ -210,7 +226,7 @@ export const loginPage = {
       }
       if (password !== confirmPassword) {
         message.style.color = "#dc2626";
-        message.textContent = "Lỗi: Mật khẩu xác nhận Không khớp";
+        message.textContent = "Lỗi: Mật khẩu không trùng khớp với nhau";
         return;
       }
       message.textContent = "Đang xử lý...";
@@ -222,7 +238,7 @@ export const loginPage = {
           body: { email, password, full_name: fullName },
         });
         message.style.color = "#16a34a";
-        message.textContent = "Tạo tài khoản thành công! Hãy đăng nhập.";
+        showAuthSuccessToast("Đăng ký tài khoản thành công!");
         registerForm.reset();
         setTimeout(() => switchTab(true), 800);
       } catch (err) {
