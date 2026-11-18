@@ -1,5 +1,5 @@
 // File: src/js/api.js
-// Client API & Chuẩn hoá dữ liệu kết nối trực tiếp với Backend FastAPI
+// Client API và Chuẩn hoá dữ liệu kết nối trực tiếp với Backend FastAPI
 
 import { CONGESTION_LEVELS, NO_DATA_COLOR } from "./constants/traffic.js";
 
@@ -256,6 +256,19 @@ export async function fetchForecast({ street_name, edge_id, weather = "sunny", m
     weather: data?.weather || weather,
     timeline,
   };
+}
+
+export async function fetchMapForecast({ minutes_ahead, weather = "sunny" }) {
+  const data = await request("/predictions/forecast/map", {
+    method: "POST",
+    body: { minutes_ahead, weather },
+  });
+
+  if (!Array.isArray(data?.edges)) {
+    throw new Error("API dự báo bản đồ trả về dữ liệu không hợp lệ.");
+  }
+
+  return data;
 }
 
 /**

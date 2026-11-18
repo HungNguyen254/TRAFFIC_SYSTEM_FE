@@ -219,6 +219,75 @@ export function renderMapView() {
           </div>
         </form>
 
+        <section class="traffic-time-controls" aria-labelledby="traffic-time-title">
+          <div class="traffic-time-heading">
+            <h2 id="traffic-time-title">Tình trạng giao thông</h2>
+            <span class="traffic-time-value" id="traffic-time-value">Hiện tại</span>
+          </div>
+          <div class="traffic-time-section-label">Theo giờ trong ngày</div>
+          <div class="traffic-timeline">
+            <button
+              class="traffic-timeline-arrow"
+              id="traffic-time-previous"
+              type="button"
+              aria-label="Lùi về mốc trước"
+              disabled
+            >&#8249;</button>
+            <div class="traffic-timeline-slider">
+              <input
+                id="traffic-time-slider"
+                type="range"
+                min="0"
+                max="24"
+                step="1"
+                value="0"
+                aria-label="Chọn mốc thời gian giao thông"
+                aria-valuetext="Hiện tại"
+                disabled
+              />
+              <div class="traffic-timeline-endpoints" aria-hidden="true">
+                <span>Hiện tại</span>
+                <span>23:00</span>
+              </div>
+            </div>
+            <button
+              class="traffic-timeline-arrow"
+              id="traffic-time-next"
+              type="button"
+              aria-label="Tiến tới mốc tiếp theo"
+              disabled
+            >&#8250;</button>
+          </div>
+          <div class="traffic-forecast">
+            <div class="traffic-time-section-label">Dự báo nhanh</div>
+            <div class="traffic-forecast-options" role="group" aria-label="Chọn thời gian dự báo">
+              <button
+                class="traffic-forecast-option"
+                type="button"
+                data-forecast-minutes="30"
+                aria-pressed="false"
+                disabled
+              >
+                <span class="traffic-forecast-offset">+30</span>
+                <span class="traffic-forecast-unit">phút</span>
+              </button>
+              <button
+                class="traffic-forecast-option"
+                type="button"
+                data-forecast-minutes="60"
+                aria-pressed="false"
+                disabled
+              >
+                <span class="traffic-forecast-offset">+60</span>
+                <span class="traffic-forecast-unit">phút</span>
+              </button>
+            </div>
+          </div>
+          <p class="traffic-time-status" id="traffic-time-status" role="status" aria-live="polite">
+            Đang tải tình trạng giao thông...
+          </p>
+        </section>
+
         <!-- CHÚ GIẢI MỨC ĐỘ GIAO THÔNG -->
         <section class="traffic-legend" aria-labelledby="traffic-legend-title">
           <h2 id="traffic-legend-title">Mức độ lưu thông theo màu</h2>
