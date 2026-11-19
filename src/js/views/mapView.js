@@ -382,8 +382,9 @@ export function renderMapView() {
             class="popup-chart-btn"
             id="popup-show-chart-btn"
             type="button"
+            disabled
           >
-            Xem biểu đồ vận tốc phân đoạn
+            Xem tốc độ theo giờ hôm nay
           </button>
         </div>
 
@@ -392,8 +393,28 @@ export function renderMapView() {
           <button class="popup-back-btn" id="popup-back-btn" type="button">
             Quay lại thông tin
           </button>
-          <h2 class="popup-title" id="popup-chart-title">Biểu đồ vận tốc theo từng đoạn</h2>
-          <div class="popup-chart-wrap">
+          <div class="section-eyebrow">SO SÁNH VẬN TỐC</div>
+          <h2 class="popup-title" id="popup-chart-title">Tốc độ trung bình theo giờ</h2>
+          <p class="popup-chart-road" id="popup-chart-road-name">--</p>
+          <p class="popup-chart-source">
+            “Hôm nay” được ước tính từ hồ sơ lịch sử của cùng thứ; đường trung bình tổng hợp dữ liệu các thứ có sẵn trong tuần.
+            Đây chưa phải số đo thực tế trong ngày.
+          </p>
+          <p class="popup-chart-status" id="popup-chart-status" role="status" aria-live="polite"></p>
+          <button class="popup-chart-retry" id="popup-chart-retry" type="button" hidden>
+            Thử tải lại
+          </button>
+          <div class="popup-chart-legend" role="list" aria-label="Chú giải biểu đồ">
+            <span class="popup-chart-legend-item" role="listitem">
+              <span class="popup-chart-legend-dot today" aria-hidden="true"></span>
+              Hôm nay
+            </span>
+            <span class="popup-chart-legend-item" role="listitem">
+              <span class="popup-chart-legend-dot average" aria-hidden="true"></span>
+              Trung bình tuần
+            </span>
+          </div>
+          <div class="popup-chart-wrap" id="popup-chart-wrap" hidden>
             <canvas id="popup-chart-canvas"></canvas>
           </div>
         </div>
