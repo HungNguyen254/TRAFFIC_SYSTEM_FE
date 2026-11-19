@@ -5,11 +5,13 @@ import Chart from "chart.js/auto";
 import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderMapView } from "../views/mapView.js";
+import { buildHourlySpeedSeries } from "../services/segmentSpeedChart.js";
 import {
   API_BASE_URL,
   fetchEdges,
   fetchMapForecast,
   parseSpeedKmh,
+  request,
   CONGESTION_LEVELS,
   NO_DATA_COLOR,
 } from "../api.js";
@@ -1475,6 +1477,7 @@ function initMapPage() {
   // Popup chi tiết & Chart.js
   // ============================================================
   const popupOverlay = document.getElementById("popup-overlay");
+  const popupBox = document.getElementById("popup-box");
   const popupToggleBtn = document.getElementById("popup-toggle-btn");
   const popupCloseBtn = document.getElementById("popup-close");
   const popupInfoPage = document.getElementById("popup-info-page");
@@ -1486,8 +1489,13 @@ function initMapPage() {
   const popupShowChartBtn = document.getElementById("popup-show-chart-btn");
   const popupBackBtn = document.getElementById("popup-back-btn");
   const popupCanvas = document.getElementById("popup-chart-canvas");
+  const popupChartRoadName = document.getElementById("popup-chart-road-name");
+  const popupChartStatus = document.getElementById("popup-chart-status");
+  const popupChartRetryBtn = document.getElementById("popup-chart-retry");
+  const popupChartWrap = document.getElementById("popup-chart-wrap");
 
   let currentPopupData = null;
+  let chartRequestId = 0;
 
   function openPopup() {
     if (popupOverlay) popupOverlay.hidden = false;
@@ -1495,17 +1503,21 @@ function initMapPage() {
   }
 
   function closePopup() {
+    chartRequestId += 1;
     if (popupOverlay) popupOverlay.hidden = true;
   }
 
   function showInfoPage() {
     if (popupInfoPage) popupInfoPage.hidden = false;
     if (popupChartPage) popupChartPage.hidden = true;
+    if (popupBox) popupBox.classList.remove("is-chart");
+    chartRequestId += 1;
   }
 
   function showChartPage() {
     if (popupInfoPage) popupInfoPage.hidden = true;
     if (popupChartPage) popupChartPage.hidden = false;
+    if (popupBox) popupBox.classList.add("is-chart");
     if (currentPopupData) drawChart(currentPopupData);
   }
 
@@ -1515,7 +1527,9 @@ function initMapPage() {
     const corridor = entry.corridor;
 
     if (popupRoadName) popupRoadName.textContent = corridor.corridor_name;
+    if (popupChartRoadName) popupChartRoadName.textContent = corridor.corridor_name;
     if (popupAvgSpeed) popupAvgSpeed.textContent = entry.avgSpeed ? `${fmt(entry.avgSpeed)} km/h` : "--";
+    if (popupShowChartBtn) popupShowChartBtn.disabled = false;
 
     if (popupCongestionLevel) {
       const dominant = corridor.edges[0]?.congestion_level;
@@ -1528,53 +1542,184 @@ function initMapPage() {
     }
   }
 
-  function drawChart(entry) {
+  async function fetchCorridorHourlyHistory(entry) {
+    const dateParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(new Date())
+      .reduce((parts, part) => {
+        if (part.type !== "literal") parts[part.type] = part.value;
+        return parts;
+      }, {});
+    const startDate = new Date(
+      Date.UTC(
+        Number(dateParts.year),
+        Number(dateParts.month) - 1,
+        Number(dateParts.day),
+      ),
+    );
+    const endDate = new Date(startDate);
+    endDate.setUTCDate(endDate.getUTCDate() + 7);
+    const start = `${startDate.toISOString().slice(0, 10)}T00:00:00`;
+    const end = `${endDate.toISOString().slice(0, 10)}T00:00:00`;
+    const todayWeekday = (startDate.getUTCDay() + 6) % 7;
+
+    const histories = await Promise.all(
+      entry.corridor.edges.map(async (edge) => {
+        if (!edge.edge_id) {
+          throw new Error("Thiếu mã đoạn đường để tải dữ liệu lịch sử.");
+        }
+        const params = new URLSearchParams({ start, end });
+        const history = await request(
+          `/edges/${encodeURIComponent(edge.edge_id)}/history?${params}`,
+        );
+        if (!Array.isArray(history?.buckets)) {
+          throw new Error("Dữ liệu lịch sử trả về không đúng định dạng.");
+        }
+        return history;
+      }),
+    );
+
+    const distancesKm = entry.corridor.edges.map((edge, index) => {
+      const snappedDistance = entry.distances?.[index];
+      return Number.isFinite(snappedDistance) && snappedDistance > 0
+        ? snappedDistance / 1000
+        : edge.length_km;
+    });
+
+    return {
+      todayWeekday,
+      series: buildHourlySpeedSeries(
+        entry.corridor.edges,
+        histories,
+        distancesKm,
+        todayWeekday,
+      ),
+    };
+  }
+
+  async function drawChart(entry) {
     if (!popupCanvas || !entry) return;
+    const requestId = ++chartRequestId;
     if (activeChart) {
       activeChart.destroy();
       activeChart = null;
     }
+    if (popupChartWrap) popupChartWrap.hidden = true;
+    if (popupChartStatus) {
+      popupChartStatus.hidden = false;
+      popupChartStatus.classList.remove("is-error");
+      popupChartStatus.textContent = "Đang tải dữ liệu tốc độ theo giờ...";
+    }
+    if (popupChartRetryBtn) popupChartRetryBtn.hidden = true;
 
-    const corridor = entry.corridor;
-    const labels = [];
-    const speeds = [];
-    const colors = [];
+    try {
+      const { series } = await fetchCorridorHourlyHistory(entry);
+      if (requestId !== chartRequestId || currentPopupData !== entry) return;
 
-    corridor.edges.forEach((e) => {
-      labels.push(e.street_name || e.from.node_name);
-      const spd = parseSpeedKmh(e.speed) || (CONGESTION_LEVELS[e.congestion_level]?.speed || 25);
-      speeds.push(spd);
-      colors.push(e.color_code || CONGESTION_LEVELS[e.congestion_level]?.color || NO_DATA_COLOR);
-    });
+      const hasData = [...series.today, ...series.average].some(
+        (speed) => speed !== null,
+      );
+      if (!hasData) {
+        if (popupChartStatus) {
+          popupChartStatus.textContent =
+            "Chưa có dữ liệu tốc độ theo giờ cho đoạn đường này.";
+        }
+        return;
+      }
 
-    const ctx = popupCanvas.getContext("2d");
-    activeChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Tốc độ (km/h)",
-            data: speeds,
-            backgroundColor: colors,
-            borderRadius: 4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
+      const hasGaps = [...series.today, ...series.average].some(
+        (speed) => speed === null,
+      );
+      if (popupChartStatus) {
+        popupChartStatus.hidden = !hasGaps;
+        popupChartStatus.textContent = hasGaps
+          ? "Một số khung giờ chưa có dữ liệu và được để trống trên biểu đồ."
+          : "";
+      }
+
+      const labels = Array.from({ length: 24 }, (_, hour) =>
+        `${String(hour).padStart(2, "0")}:00`,
+      );
+      const ctx = popupCanvas.getContext("2d");
+      activeChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Hôm nay",
+              data: series.today,
+              borderColor: "#2563eb",
+              backgroundColor: "rgba(37, 99, 235, 0.12)",
+              pointBackgroundColor: "#2563eb",
+              pointRadius: 2,
+              pointHoverRadius: 5,
+              borderWidth: 3,
+              tension: 0.3,
+              spanGaps: false,
+            },
+            {
+              label: "Trung bình tuần",
+              data: series.average,
+              borderColor: "#f59e0b",
+              backgroundColor: "rgba(245, 158, 11, 0.08)",
+              pointBackgroundColor: "#f59e0b",
+              pointRadius: 1.5,
+              pointHoverRadius: 5,
+              borderWidth: 2,
+              borderDash: [6, 4],
+              tension: 0.3,
+              spanGaps: false,
+            },
+          ],
         },
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: { display: true, text: "Vận tốc (km/h)" },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: "index" },
+          plugins: {
+            legend: {
+              display: false,
+            },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  const speed = context.parsed.y;
+                  return speed === null
+                    ? `${context.dataset.label}: Không có dữ liệu`
+                    : `${context.dataset.label}: ${fmt(speed)} km/h`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              title: { display: true, text: "Giờ trong ngày" },
+              grid: { display: false },
+              ticks: { maxTicksLimit: 12, maxRotation: 0 },
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Tốc độ trung bình (km/h)" },
+              ticks: { callback: (value) => `${value} km/h` },
+            },
           },
         },
-      },
-    });
+      });
+      if (popupChartWrap) popupChartWrap.hidden = false;
+    } catch (error) {
+      if (requestId !== chartRequestId) return;
+      if (popupChartStatus) {
+        popupChartStatus.hidden = false;
+        popupChartStatus.classList.add("is-error");
+        popupChartStatus.textContent = `Không thể tải dữ liệu biểu đồ: ${error.message}`;
+      }
+      if (popupChartRetryBtn) popupChartRetryBtn.hidden = false;
+    }
   }
 
   if (popupToggleBtn) popupToggleBtn.addEventListener("click", openPopup);
@@ -1586,6 +1731,11 @@ function initMapPage() {
   }
   if (popupShowChartBtn) popupShowChartBtn.addEventListener("click", showChartPage);
   if (popupBackBtn) popupBackBtn.addEventListener("click", showInfoPage);
+  if (popupChartRetryBtn) {
+    popupChartRetryBtn.addEventListener("click", () => {
+      if (currentPopupData) drawChart(currentPopupData);
+    });
+  }
 }
 
 export const mapPage = {
