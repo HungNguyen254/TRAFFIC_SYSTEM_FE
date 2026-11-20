@@ -7,6 +7,7 @@ import {
   processChatMessage,
 } from "../services/chatService.js";
 import { navigateTo } from "../router.js";
+import { isLoggedIn } from "../api.js";
 
 const POS_STORAGE_KEY = "traffic_chatbot_pos";
 const HISTORY_STORAGE_KEY = "traffic_chatbot_history";
@@ -400,6 +401,8 @@ function initDraggableFab() {
  * Khởi tạo DOM Chatbot Widget và gắn vào trang web
  */
 export function initChatbot() {
+  // Chatbot chỉ khả dụng khi người dùng đã đăng nhập
+  if (!isLoggedIn()) return;
   if (document.getElementById("chatbot-fab")) return;
 
   // 1. Tạo Floating Action Button (FAB)
