@@ -16,11 +16,11 @@ import { initHeaderEvents } from "./components/header.js";
 const routes = {
   "/": {
     page: homePage,
-    meta: { public: true, title: "Trang chủ" },
+    meta: { requiresAuth: true, title: "Trang chủ" },
   },
   "/map": {
     page: mapPage,
-    meta: { public: true, title: "Bản đồ giao thông" },
+    meta: { requiresAuth: true, title: "Bản đồ giao thông" },
   },
   "/login": {
     page: loginPage,
