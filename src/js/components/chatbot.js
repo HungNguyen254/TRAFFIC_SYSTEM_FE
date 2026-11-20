@@ -7,6 +7,7 @@ import {
   processChatMessage,
 } from "../services/chatService.js";
 import { navigateTo } from "../router.js";
+import { isLoggedIn } from "../api.js";
 
 const POS_STORAGE_KEY = "traffic_chatbot_pos";
 const HISTORY_STORAGE_KEY = "traffic_chatbot_history";
@@ -19,10 +20,11 @@ let messagesContainer = null;
 let inputEl = null;
 let sendBtn = null;
 let isChatOpen = false;
+let isChatInitialized = false;
 
 /**
  * Định dạng văn bản đơn giản (Markdown escape + in đậm + gạch đầu dòng + xuống dòng)
- * @param {string} text 
+ * @param {string} text
  * @returns {string}
  */
 function formatMessageContent(text) {
@@ -40,13 +42,16 @@ function formatMessageContent(text) {
 
 /**
  * Định dạng thời gian hiển thị (HH:mm)
- * @param {string} isoString 
+ * @param {string} isoString
  * @returns {string}
  */
 function formatTime(isoString) {
   try {
     const d = new Date(isoString);
-    return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return "";
   }
@@ -73,7 +78,7 @@ function loadMessageHistory() {
 
 /**
  * Lưu lịch sử tin nhắn vào LocalStorage
- * @param {Array<object>} history 
+ * @param {Array<object>} history
  */
 function saveMessageHistory(history) {
   try {
@@ -87,7 +92,7 @@ function saveMessageHistory(history) {
 
 /**
  * Tạo bong bóng tin nhắn HTML
- * @param {object} msg 
+ * @param {object} msg
  * @returns {HTMLElement}
  */
 function createMessageBubble(msg) {
@@ -102,7 +107,11 @@ function createMessageBubble(msg) {
   bubble.appendChild(contentDiv);
 
   // Render Action Buttons nếu có trong tin nhắn của bot
-  if (msg.role === "model" && Array.isArray(msg.actions) && msg.actions.length > 0) {
+  if (
+    msg.role === "model" &&
+    Array.isArray(msg.actions) &&
+    msg.actions.length > 0
+  ) {
     const actionsContainer = document.createElement("div");
     actionsContainer.className = "chat-actions";
 
@@ -143,7 +152,7 @@ function scrollToBottom() {
 
 /**
  * Bật/tắt trạng thái mở cửa sổ chat
- * @param {boolean} open 
+ * @param {boolean} open
  */
 function setChatOpen(open) {
   isChatOpen = open;
@@ -228,7 +237,7 @@ function hideTypingIndicator() {
 
 /**
  * Gửi câu hỏi của người dùng và nhận câu trả lời
- * @param {string} text 
+ * @param {string} text
  */
 async function sendUserMessage(text) {
   const clean = (text || "").trim();
@@ -263,7 +272,8 @@ async function sendUserMessage(text) {
     hideTypingIndicator();
     const errorMsg = {
       role: "model",
-      content: "Xin lỗi, hiện tại hệ thống gặp trục trặc khi kết nối dữ liệu. Vui lòng thử lại sau.",
+      content:
+        "Xin lỗi, hiện tại hệ thống gặp trục trặc khi kết nối dữ liệu. Vui lòng thử lại sau.",
       timestamp: new Date().toISOString(),
     };
     messagesContainer.appendChild(createMessageBubble(errorMsg));
@@ -295,15 +305,29 @@ function initDraggableFab() {
     savedPos = null;
   }
 
-  const defaultLeft = Math.max(VIEWPORT_MARGIN, window.innerWidth - BTN_SIZE - 24);
-  const defaultTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - BTN_SIZE - 24);
+  const defaultLeft = Math.max(
+    VIEWPORT_MARGIN,
+    window.innerWidth - BTN_SIZE - 24,
+  );
+  const defaultTop = Math.max(
+    VIEWPORT_MARGIN,
+    window.innerHeight - BTN_SIZE - 24,
+  );
 
-  let currentLeft = savedPos && typeof savedPos.left === "number" ? savedPos.left : defaultLeft;
-  let currentTop = savedPos && typeof savedPos.top === "number" ? savedPos.top : defaultTop;
+  let currentLeft =
+    savedPos && typeof savedPos.left === "number" ? savedPos.left : defaultLeft;
+  let currentTop =
+    savedPos && typeof savedPos.top === "number" ? savedPos.top : defaultTop;
 
   // Giới hạn trong viewport
-  currentLeft = Math.min(Math.max(VIEWPORT_MARGIN, currentLeft), window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN);
-  currentTop = Math.min(Math.max(VIEWPORT_MARGIN, currentTop), window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN);
+  currentLeft = Math.min(
+    Math.max(VIEWPORT_MARGIN, currentLeft),
+    window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN,
+  );
+  currentTop = Math.min(
+    Math.max(VIEWPORT_MARGIN, currentTop),
+    window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN,
+  );
 
   fabEl.style.left = `${currentLeft}px`;
   fabEl.style.top = `${currentTop}px`;
@@ -341,8 +365,14 @@ function initDraggableFab() {
       let nextLeft = initialLeft + dx;
       let nextTop = initialTop + dy;
 
-      nextLeft = Math.min(Math.max(VIEWPORT_MARGIN, nextLeft), window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN);
-      nextTop = Math.min(Math.max(VIEWPORT_MARGIN, nextTop), window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN);
+      nextLeft = Math.min(
+        Math.max(VIEWPORT_MARGIN, nextLeft),
+        window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN,
+      );
+      nextTop = Math.min(
+        Math.max(VIEWPORT_MARGIN, nextTop),
+        window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN,
+      );
 
       fabEl.style.left = `${nextLeft}px`;
       fabEl.style.top = `${nextTop}px`;
@@ -362,7 +392,10 @@ function initDraggableFab() {
     if (hasDragged) {
       const rect = fabEl.getBoundingClientRect();
       try {
-        localStorage.setItem(POS_STORAGE_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
+        localStorage.setItem(
+          POS_STORAGE_KEY,
+          JSON.stringify({ left: rect.left, top: rect.top }),
+        );
       } catch {}
     } else {
       // Nhấn tại chỗ -> Toggle mở/đóng chat
@@ -384,8 +417,14 @@ function initDraggableFab() {
   // Tự động căn chỉnh khi resize màn hình
   window.addEventListener("resize", () => {
     const rect = fabEl.getBoundingClientRect();
-    let safeLeft = Math.min(Math.max(VIEWPORT_MARGIN, rect.left), window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN);
-    let safeTop = Math.min(Math.max(VIEWPORT_MARGIN, rect.top), window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN);
+    let safeLeft = Math.min(
+      Math.max(VIEWPORT_MARGIN, rect.left),
+      window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN,
+    );
+    let safeTop = Math.min(
+      Math.max(VIEWPORT_MARGIN, rect.top),
+      window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN,
+    );
 
     fabEl.style.left = `${safeLeft}px`;
     fabEl.style.top = `${safeTop}px`;
@@ -400,6 +439,37 @@ function initDraggableFab() {
  * Khởi tạo DOM Chatbot Widget và gắn vào trang web
  */
 export function initChatbot() {
+  syncChatbotVisibility();
+}
+
+/**
+ * Đồng bộ hiển thị chatbot theo trạng thái đăng nhập.
+ * Được gọi lại sau mỗi lần đăng nhập / đăng xuất (qua updateHeaderAuth).
+ */
+export function syncChatbotVisibility() {
+  if (isLoggedIn()) {
+    if (!isChatInitialized) {
+      createChatbotWidget();
+      isChatInitialized = true;
+    }
+  } else if (isChatInitialized) {
+    // Đăng xuất: gỡ bỏ widget và đóng trạng thái mở
+    if (fabEl) fabEl.remove();
+    if (windowEl) windowEl.remove();
+    fabEl = null;
+    windowEl = null;
+    messagesContainer = null;
+    inputEl = null;
+    sendBtn = null;
+    isChatOpen = false;
+    isChatInitialized = false;
+  }
+}
+
+/**
+ * Tạo DOM Chatbot Widget và gắn vào trang web
+ */
+function createChatbotWidget() {
   if (document.getElementById("chatbot-fab")) return;
 
   // 1. Tạo Floating Action Button (FAB)

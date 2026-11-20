@@ -3,6 +3,7 @@ import { renderHeader, updateHeaderAuth } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderLoginView } from "../views/loginView.js";
 import { clearSession, isLoggedIn, request, saveSession } from "../api.js";
+import { showToast } from "../components/toast.js";
 
 function getPasswordValidationMessage(password) {
   if (password.length < 6) return "Mật khẩu phải có ít nhất 6 ký tự.";
@@ -54,6 +55,7 @@ export const loginPage = {
     logoutButton.addEventListener("click", () => {
       clearSession();
       updateHeaderAuth();
+      showToast("Đăng xuất thành công.", "info");
       navigateTo("/");
     });
 
@@ -111,14 +113,12 @@ export const loginPage = {
 
         const passwordError = getPasswordValidationMessage(newPassword);
         if (passwordError) {
-          message.style.color = "#dc2626";
-          message.textContent = `Lỗi: ${passwordError}`;
+          showToast(`Lỗi: ${passwordError}`, "error");
           return;
         }
 
         if (newPassword !== confirmPassword) {
-          message.style.color = "#dc2626";
-          message.textContent = "Lỗi: Mật khẩu nhập lại không khớp.";
+          showToast("Lỗi: Mật khẩu nhập lại không khớp.", "error");
           return;
         }
 
@@ -135,11 +135,9 @@ export const loginPage = {
             auth: true,
           });
           changePasswordForm.reset();
-          message.style.color = "#16a34a";
-          message.textContent = "Đổi mật khẩu thành công.";
+          showToast("Đổi mật khẩu thành công.", "success");
         } catch (err) {
-          message.style.color = "#dc2626";
-          message.textContent = `Lỗi: ${err.message}`;
+          showToast(`Lỗi: ${err.message}`, "error");
         } finally {
           submitButton.disabled = false;
         }
@@ -184,13 +182,11 @@ export const loginPage = {
           role: tokenRes.role,
         });
         updateHeaderAuth();
-        message.style.color = "#16a34a";
-        message.textContent = "Đăng nhập thành công, đang chuyển hướng...";
+        showToast("Đăng nhập thành công!", "success");
         const target = redirectTarget && redirectTarget.startsWith("/") ? decodeURIComponent(redirectTarget) : "/";
         setTimeout(() => navigateTo(target), 400);
       } catch (err) {
-        message.style.color = "#dc2626";
-        message.textContent = `Lỗi: ${err.message}`;
+        showToast(`Lỗi: ${err.message}`, "error");
       }
     });
 
@@ -204,13 +200,11 @@ export const loginPage = {
       const confirmPassword = document.getElementById("reg-confirm-password").value;
       const passwordError = getPasswordValidationMessage(password);
       if (passwordError) {
-        message.style.color = "#dc2626";
-        message.textContent = `Lỗi: ${passwordError}`;
+        showToast(`Lỗi: ${passwordError}`, "error");
         return;
       }
       if (password !== confirmPassword) {
-        message.style.color = "#dc2626";
-        message.textContent = "Lỗi: Mật khẩu xác nhận Không khớp";
+        showToast("Lỗi: Mật khẩu xác nhận không khớp.", "error");
         return;
       }
       message.textContent = "Đang xử lý...";
@@ -221,13 +215,11 @@ export const loginPage = {
           method: "POST",
           body: { email, password, full_name: fullName },
         });
-        message.style.color = "#16a34a";
-        message.textContent = "Tạo tài khoản thành công! Hãy đăng nhập.";
+        showToast("Tạo tài khoản thành công! Hãy đăng nhập.", "success");
         registerForm.reset();
         setTimeout(() => switchTab(true), 800);
       } catch (err) {
-        message.style.color = "#dc2626";
-        message.textContent = `Lỗi: ${err.message}`;
+        showToast(`Lỗi: ${err.message}`, "error");
       }
     });
   },
