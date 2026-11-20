@@ -1,5 +1,6 @@
 // File: src/js/components/header.js
 import { isAdmin, isLoggedIn } from "../api.js";
+import { syncChatbotVisibility } from "./chatbot.js";
 
 let headerEventsInitialized = false;
 
@@ -151,4 +152,7 @@ export function updateHeaderAuth() {
   if (adminLink) {
     adminLink.hidden = !admin;
   }
+
+  // Đồng bộ chatbot theo trạng thái đăng nhập (không cần F5)
+  syncChatbotVisibility();
 }
