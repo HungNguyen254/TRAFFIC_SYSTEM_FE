@@ -2,7 +2,7 @@
 import { renderHeader, updateHeaderAuth } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 import { renderLoginView } from "../views/loginView.js";
-import { clearSession, isLoggedIn, request, saveSession } from "../api.js";
+import { clearSession, getToken, isLoggedIn, request, saveSession } from "../api.js";
 import Toastify from "toastify-js";
 import "toastify-js/src/toastify.css";
 
@@ -95,6 +95,12 @@ export const loginPage = {
     async function loadMe() {
       try {
         const user = await request("/auth/me", { auth: true });
+        saveSession(getToken(), {
+          user_id: user.user_id,
+          email: user.email,
+          role: user.role,
+        });
+        updateHeaderAuth();
         const nameEl = document.getElementById("me-name");
         const emailEl = document.getElementById("me-email");
         const roleEl = document.getElementById("me-role");
@@ -235,7 +241,12 @@ export const loginPage = {
       try {
         await request("/auth/register", {
           method: "POST",
-          body: { email, password, full_name: fullName },
+          body: {
+            email,
+            password,
+            confirm_password: confirmPassword,
+            full_name: fullName,
+          },
         });
         message.style.color = "#16a34a";
         showAuthSuccessToast("Đăng ký tài khoản thành công!");

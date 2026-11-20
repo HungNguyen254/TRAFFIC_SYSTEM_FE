@@ -48,6 +48,7 @@ export function renderHeader(currentPath = "/") {
         <a href="/" data-link ${normPath === "/" ? 'aria-current="page"' : ""}>Trang chủ</a>
         <a href="/#forecast" data-link>Dự báo</a>
         <a href="/map" data-link ${normPath === "/map" ? 'aria-current="page"' : ""}>Bản đồ</a>
+        <a href="/compare" data-link ${normPath === "/compare" ? 'aria-current="page"' : ""}>So sánh tuyến</a>
         <a href="/login" id="nav-auth" data-link ${normPath === "/login" ? 'aria-current="page"' : ""}>
           ${authLabel}
         </a>

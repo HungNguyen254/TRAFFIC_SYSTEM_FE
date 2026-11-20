@@ -646,7 +646,7 @@ function initMapPage() {
     corridor.edges.forEach((e) => {
       const style = CONGESTION_LEVELS[e.congestion_level] || { color: NO_DATA_COLOR };
       const segLine = L.polyline(
-        [
+        e.geometry || [
           [e.from.lat, e.from.lng],
           [e.to.lat, e.to.lng],
         ],
@@ -1098,7 +1098,14 @@ function initMapPage() {
 
           try {
             const snappedList = await Promise.all(
-              corridor.edges.map((e) => snapEdgeGeometry(e.from, e.to, abortSignal)),
+              corridor.edges.map((e) =>
+                e.geometry?.length >= 2
+                  ? {
+                      pts: e.geometry,
+                      distance: polylineLength(e.geometry),
+                    }
+                  : snapEdgeGeometry(e.from, e.to, abortSignal),
+              ),
             );
             if (isDestroyed || !activeMap) break;
 
