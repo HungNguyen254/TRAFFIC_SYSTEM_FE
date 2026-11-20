@@ -216,6 +216,28 @@ export function renderMapView() {
             <button class="btn-secondary" id="search-btn" type="submit">
               Tìm kiếm
             </button>
+            <button
+              class="favorite-square-btn"
+              id="favorite-save-btn"
+              type="button"
+              title="Thêm tuyến đường hoặc địa điểm vào yêu thích"
+              aria-pressed="false"
+            >
+              <svg
+                class="favorite-heart-icon"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
           </div>
         </form>
 
@@ -336,15 +358,62 @@ export function renderMapView() {
       </aside>
     </div>
 
-    <!-- ===== NÚT BẬT POPUP THÔNG TIN ĐƯỜNG ===== -->
-    <button
-      class="popup-toggle-btn"
-      id="popup-toggle-btn"
-      type="button"
-      title="Xem chi tiết & biểu đồ vận tốc"
-    >
-      Dữ liệu & Biểu đồ tốc độ
-    </button>
+    <!-- ===== NÚT GÓC TRÁI: DỮ LIỆU + YÊU THÍCH ===== -->
+    <div class="map-bottom-actions">
+      <button
+        class="popup-toggle-btn"
+        id="popup-toggle-btn"
+        type="button"
+        title="Xem chi tiết & biểu đồ vận tốc"
+      >
+        Dữ liệu & Biểu đồ tốc độ
+      </button>
+      <button
+        class="popup-toggle-btn favorites-toggle-btn"
+        id="favorites-toggle-btn"
+        type="button"
+        title="Xem tuyến đường và địa điểm yêu thích"
+        aria-haspopup="dialog"
+      >
+        Đường và địa điểm yêu thích
+      </button>
+    </div>
+
+    <!-- ===== FAVORITE PLACES POPUP MODAL ===== -->
+    <div class="popup-overlay" id="favorites-overlay" hidden>
+      <div
+        class="popup-box favorites-box"
+        id="favorites-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="favorites-title"
+      >
+        <button
+          class="popup-close-text"
+          id="favorites-close"
+          type="button"
+          title="Đóng cửa sổ"
+          aria-label="Đóng"
+        >
+          Đóng
+        </button>
+        <div class="section-eyebrow">MỤC YÊU THÍCH CỦA TÔI</div>
+        <h2 class="popup-title" id="favorites-title">Đường và địa điểm yêu thích</h2>
+
+        <p
+          class="favorites-status"
+          id="favorites-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+
+        <ul
+          class="favorites-list"
+          id="favorites-list"
+          aria-label="Danh sách tuyến đường và địa điểm yêu thích"
+        ></ul>
+      </div>
+    </div>
 
     <!-- ===== ROAD INFO POPUP MODAL ===== -->
     <div class="popup-overlay" id="popup-overlay" hidden>
