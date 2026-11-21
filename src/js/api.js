@@ -78,6 +78,41 @@ export function trafficLevelFromSpeed(speedKmh) {
   return 4;                     // Kẹt xe hoàn toàn
 }
 
+function normalizeEdgeGeometry(geometryValue) {
+  if (!geometryValue) return null;
+  try {
+    const geometry =
+      typeof geometryValue === "string"
+        ? JSON.parse(geometryValue)
+        : geometryValue;
+    if (geometry?.type !== "LineString" || !Array.isArray(geometry.coordinates)) {
+      return null;
+    }
+
+    const coordinates = geometry.coordinates.map((point) => {
+      if (!Array.isArray(point) || point.length < 2) return null;
+      const lng = Number(point[0]);
+      const lat = Number(point[1]);
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180
+      ) {
+        return null;
+      }
+      return [lat, lng];
+    });
+    return coordinates.length >= 2 && coordinates.every(Boolean)
+      ? coordinates
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Chuẩn hóa danh sách edges từ API backend về cấu trúc đồng nhất
  * @param {any} raw 
@@ -85,7 +120,7 @@ export function trafficLevelFromSpeed(speedKmh) {
  */
 export function normalizeEdges(raw) {
   if (!raw) return [];
-  const nodesById = {};
+  const nodesById = Object.create(null);
   if (Array.isArray(raw.nodes)) {
     raw.nodes.forEach((n) => {
       if (n.node_id) nodesById[n.node_id] = n;
@@ -101,8 +136,18 @@ export function normalizeEdges(raw) {
       : [];
 
   return list.map((e) => {
-    const from = e.from || nodesById[e.from_node_id] || e.from_node || {};
-    const to = e.to || nodesById[e.to_node_id] || e.to_node || {};
+    const rawFrom = e.from || e.from_node || {};
+    const rawTo = e.to || e.to_node || {};
+    const from =
+    nodesById[e.from_node_id] ||
+    nodesById[rawFrom.node_id] ||
+    nodesById[rawFrom.node_code] ||
+    rawFrom;
+    const to =
+    nodesById[e.to_node_id] ||
+    nodesById[rawTo.node_id] ||
+    nodesById[rawTo.node_code] ||
+    rawTo;
     const rec = e.latest_traffic || e.traffic_record || {};
     const speed =
       rec.speed ??
@@ -126,13 +171,16 @@ export function normalizeEdges(raw) {
       street_name: String(e.street_name || e.name || "Tuyến đường"),
       corridor_name: String(e.corridor_name || e.street_name || e.name || "Trục đường"),
       max_speed_limit: Number(e.max_speed_limit) || 50,
+      geometry: normalizeEdgeGeometry(e.geom),
       from: {
+        node_id: String(from.node_id || from.id || e.from_node_id || ""),
         node_code: String(from.node_code || from.id || ""),
         node_name: String(from.node_name || from.name || "Điểm nút"),
         lat: Number(from.lat ?? from.latitude) || 0,
         lng: Number(from.lng ?? from.longitude) || 0,
       },
       to: {
+        node_id: String(to.node_id || to.id || e.to_node_id || ""),
         node_code: String(to.node_code || to.id || ""),
         node_name: String(to.node_name || to.name || "Điểm nút"),
         lat: Number(to.lat ?? to.latitude) || 0,
@@ -219,13 +267,20 @@ export async function fetchEdgesStatus(options = {}) {
 /**
  * Gửi yêu cầu dự báo giao thông AI và chuẩn hóa kết quả trả về
  */
-export async function fetchForecast({ street_name, edge_id, weather = "sunny", minutes_ahead = [30, 60, 120] }) {
+export async function fetchForecast({
+  street_name,
+  edge_id,
+  weather = "sunny",
+  minutes_ahead = [30, 60, 120],
+  base_time,
+}) {
   const body = {
     weather,
     minutes_ahead: Array.isArray(minutes_ahead) ? minutes_ahead : [minutes_ahead],
   };
   if (edge_id) body.edge_id = edge_id;
   if (street_name) body.street_name = street_name;
+  if (base_time) body.base_time = base_time;
 
   const data = await request("/predictions/forecast", {
     method: "POST",
@@ -269,6 +324,13 @@ export async function fetchMapForecast({ minutes_ahead, weather = "sunny" }) {
   }
 
   return data;
+}
+
+export async function fetchRouteForecast({ base_time, weather, steps }) {
+  return request("/predictions/forecast/route", {
+    method: "POST",
+    body: { base_time, weather, steps },
+  });
 }
 
 /**
