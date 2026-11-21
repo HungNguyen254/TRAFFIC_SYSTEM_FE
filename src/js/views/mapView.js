@@ -322,6 +322,42 @@ export function renderMapView() {
           <button class="traffic-time-retry" id="traffic-time-retry" type="button" hidden>
             Thử tải lại
           </button>
+          <section
+            class="map-forecast-result"
+            id="map-forecast-result"
+            aria-labelledby="map-forecast-result-title"
+            hidden
+          >
+            <div class="map-forecast-result-heading">
+              <h3 id="map-forecast-result-title">Kết quả dự báo</h3>
+              <span id="map-forecast-result-offset"></span>
+            </div>
+            <p class="map-forecast-result-status" id="map-forecast-result-status" role="status" aria-live="polite">
+              Đang chờ dự báo.
+            </p>
+            <div class="map-forecast-result-content" id="map-forecast-result-content" hidden>
+              <dl class="map-forecast-result-metrics">
+                <div>
+                  <dt>Mức ùn tắc dự kiến</dt>
+                  <dd id="map-forecast-result-level"></dd>
+                </div>
+                <div>
+                  <dt>Thời điểm dự báo</dt>
+                  <dd id="map-forecast-result-time"></dd>
+                </div>
+                <div>
+                  <dt>Đồng thuận mô hình</dt>
+                  <dd id="map-forecast-result-agreement"></dd>
+                  <small id="map-forecast-result-agreement-note"></small>
+                </div>
+              </dl>
+              <div class="map-forecast-result-copy">
+                <p><strong>Nhận xét</strong><span id="map-forecast-result-comment"></span></p>
+                <p><strong>Khuyến nghị</strong><span id="map-forecast-result-recommendation"></span></p>
+                <p class="map-forecast-result-source" id="map-forecast-result-source"></p>
+              </div>
+            </div>
+          </section>
         </section>
 
         <!-- CHÚ GIẢI MỨC ĐỘ GIAO THÔNG -->

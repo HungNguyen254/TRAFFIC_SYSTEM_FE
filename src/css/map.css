@@ -924,6 +924,118 @@
   display: none !important;
 }
 
+.map-forecast-result {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+}
+
+.map-forecast-result[hidden],
+.map-forecast-result-content[hidden] {
+  display: none !important;
+}
+
+.map-forecast-result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.map-forecast-result-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#map-forecast-result-offset {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.map-forecast-result-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.map-forecast-result-status.error {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.map-forecast-result-status.is-loading {
+  color: var(--primary);
+}
+
+.map-forecast-result-metrics {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.map-forecast-result-metrics > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.map-forecast-result-metrics dt {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.map-forecast-result-metrics dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.map-forecast-result-metrics small {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.map-forecast-result-copy {
+  display: grid;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+
+.map-forecast-result-copy p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.map-forecast-result-copy strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.map-forecast-result-copy .map-forecast-result-source {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: italic;
+}
+
 .road-search-controls {
   display: flex;
   gap: 8px;

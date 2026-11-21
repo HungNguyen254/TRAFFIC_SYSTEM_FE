@@ -78,6 +78,29 @@ describe("Traffic AI Intelligence Service", () => {
     assert.ok(res.content.toLowerCase().includes("nguyễn trãi"));
   });
 
+  test("processChatMessage routes an origin-to-destination question to the map planner", async () => {
+    const res = await processChatMessage(
+      "Tìm đường đi tối ưu từ Láng qua Nguyễn Trãi Hà Đông",
+      mockEdges,
+    );
+    const action = res.actions.find((item) => item.text === "Tính lộ trình trên bản đồ");
+    const routeUrl = new URL(action.path, "https://traffic.test");
+
+    assert.ok(res.content.includes("Láng"));
+    assert.ok(res.content.includes("Nguyễn Trãi Hà Đông"));
+    assert.equal(routeUrl.pathname, "/map");
+    assert.equal(routeUrl.searchParams.get("origin"), "Láng");
+    assert.equal(routeUrl.searchParams.get("destination"), "Nguyễn Trãi Hà Đông");
+    assert.equal(routeUrl.searchParams.get("chat_route"), "1");
+  });
+
+  test("processChatMessage asks for both places when a route request has no endpoints", async () => {
+    const res = await processChatMessage("Tìm đường tối ưu giúp tôi", mockEdges);
+
+    assert.ok(res.content.includes("điểm đi"));
+    assert.ok(res.actions.some((item) => item.path === "/map"));
+  });
+
   test("processChatMessage phản hồi thân thiện và hữu ích khi gặp câu hỏi chưa nhận diện", async () => {
     const res = await processChatMessage("Thời tiết ngày mai thế nào?", mockEdges);
     assert.equal(res.role, "model");
