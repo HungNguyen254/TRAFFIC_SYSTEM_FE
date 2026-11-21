@@ -71,7 +71,7 @@ export function parseSpeedKmh(value) {
  * @returns {number|null}
  */
 export function trafficLevelFromSpeed(speedKmh) {
-  if (speedKmh === null) return null;
+  if (speedKmh === null || !Number.isFinite(speedKmh) || speedKmh <= 0) return null;
   if (speedKmh >= 35) return 1; // Thông thoáng
   if (speedKmh >= 25) return 2; // Di chuyển chậm
   if (speedKmh >= 15) return 3; // Ùn tắc nghiêm trọng
