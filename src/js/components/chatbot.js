@@ -10,9 +10,11 @@ import { navigateTo } from "../router.js";
 import { isLoggedIn } from "../api.js";
 
 const POS_STORAGE_KEY = "traffic_chatbot_pos";
+const MOBILE_POS_STORAGE_KEY = "traffic_chatbot_pos_mobile";
 const HISTORY_STORAGE_KEY = "traffic_chatbot_history";
 const BTN_SIZE = 58;
 const VIEWPORT_MARGIN = 12;
+const MOBILE_BREAKPOINT = 640;
 
 let fabEl = null;
 let windowEl = null;
@@ -21,6 +23,52 @@ let inputEl = null;
 let sendBtn = null;
 let isChatOpen = false;
 let isChatInitialized = false;
+let fabResizeHandler = null;
+
+export function clampFabPosition(
+  left,
+  top,
+  viewportWidth,
+  viewportHeight,
+  width = BTN_SIZE,
+  height = BTN_SIZE,
+) {
+  const maxLeft = Math.max(VIEWPORT_MARGIN, viewportWidth - width - VIEWPORT_MARGIN);
+  const maxTop = Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN);
+  return {
+    left: Math.min(Math.max(VIEWPORT_MARGIN, left), maxLeft),
+    top: Math.min(Math.max(VIEWPORT_MARGIN, top), maxTop),
+  };
+}
+
+export function getResponsiveFabPosition({
+  desktopPosition,
+  mobilePosition,
+  isMobile,
+  viewportWidth,
+  viewportHeight,
+  width,
+  height,
+}) {
+  const savedPosition = isMobile ? mobilePosition : desktopPosition;
+  const position =
+    savedPosition &&
+    Number.isFinite(savedPosition.left) &&
+    Number.isFinite(savedPosition.top)
+      ? savedPosition
+      : {
+          left: viewportWidth - width - 24,
+          top: viewportHeight - height - 24,
+        };
+  return clampFabPosition(
+    position.left,
+    position.top,
+    viewportWidth,
+    viewportHeight,
+    width,
+    height,
+  );
+}
 
 /**
  * Định dạng văn bản đơn giản (Markdown escape + in đậm + gạch đầu dòng + xuống dòng)
@@ -297,40 +345,60 @@ function initDraggableFab() {
   let isPointerDown = false;
   let hasDragged = false;
 
-  // Khôi phục vị trí đã lưu từ LocalStorage
-  let savedPos = null;
-  try {
-    savedPos = JSON.parse(localStorage.getItem(POS_STORAGE_KEY) || "null");
-  } catch {
-    savedPos = null;
+  function getPositionStorageKey() {
+    return window.innerWidth <= MOBILE_BREAKPOINT
+      ? MOBILE_POS_STORAGE_KEY
+      : POS_STORAGE_KEY;
   }
 
-  const defaultLeft = Math.max(
-    VIEWPORT_MARGIN,
-    window.innerWidth - BTN_SIZE - 24,
-  );
-  const defaultTop = Math.max(
-    VIEWPORT_MARGIN,
-    window.innerHeight - BTN_SIZE - 24,
-  );
+  function readSavedPosition(storageKey) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (
+        saved &&
+        Number.isFinite(saved.left) &&
+        Number.isFinite(saved.top)
+      ) {
+        return saved;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
 
-  let currentLeft =
-    savedPos && typeof savedPos.left === "number" ? savedPos.left : defaultLeft;
-  let currentTop =
-    savedPos && typeof savedPos.top === "number" ? savedPos.top : defaultTop;
+  function getSafePosition(left, top) {
+    const rect = fabEl.getBoundingClientRect();
+    return clampFabPosition(
+      left,
+      top,
+      window.innerWidth,
+      window.innerHeight,
+      rect.width || BTN_SIZE,
+      rect.height || BTN_SIZE,
+    );
+  }
 
-  // Giới hạn trong viewport
-  currentLeft = Math.min(
-    Math.max(VIEWPORT_MARGIN, currentLeft),
-    window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN,
-  );
-  currentTop = Math.min(
-    Math.max(VIEWPORT_MARGIN, currentTop),
-    window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN,
-  );
+  function applyPosition(position) {
+    fabEl.style.left = `${position.left}px`;
+    fabEl.style.top = `${position.top}px`;
+  }
 
-  fabEl.style.left = `${currentLeft}px`;
-  fabEl.style.top = `${currentTop}px`;
+  function getPositionForViewport() {
+    const rect = fabEl.getBoundingClientRect();
+    return getResponsiveFabPosition({
+      desktopPosition: readSavedPosition(POS_STORAGE_KEY),
+      mobilePosition: readSavedPosition(MOBILE_POS_STORAGE_KEY),
+      isMobile: window.innerWidth <= MOBILE_BREAKPOINT,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      width: rect.width || BTN_SIZE,
+      height: rect.height || BTN_SIZE,
+    });
+  }
+
+  let positionStorageKey = getPositionStorageKey();
+  applyPosition(getPositionForViewport());
 
   fabEl.addEventListener("pointerdown", (e) => {
     // Chỉ nhận click chuột trái hoặc chạm cảm ứng
@@ -362,20 +430,7 @@ function initDraggableFab() {
     }
 
     if (hasDragged) {
-      let nextLeft = initialLeft + dx;
-      let nextTop = initialTop + dy;
-
-      nextLeft = Math.min(
-        Math.max(VIEWPORT_MARGIN, nextLeft),
-        window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN,
-      );
-      nextTop = Math.min(
-        Math.max(VIEWPORT_MARGIN, nextTop),
-        window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN,
-      );
-
-      fabEl.style.left = `${nextLeft}px`;
-      fabEl.style.top = `${nextTop}px`;
+      applyPosition(getSafePosition(initialLeft + dx, initialTop + dy));
     }
   });
 
@@ -393,7 +448,7 @@ function initDraggableFab() {
       const rect = fabEl.getBoundingClientRect();
       try {
         localStorage.setItem(
-          POS_STORAGE_KEY,
+          positionStorageKey,
           JSON.stringify({ left: rect.left, top: rect.top }),
         );
       } catch {}
@@ -415,24 +470,25 @@ function initDraggableFab() {
   });
 
   // Tự động căn chỉnh khi resize màn hình
-  window.addEventListener("resize", () => {
+  if (fabResizeHandler) {
+    window.removeEventListener("resize", fabResizeHandler);
+  }
+  fabResizeHandler = () => {
+    if (!fabEl) return;
     const rect = fabEl.getBoundingClientRect();
-    let safeLeft = Math.min(
-      Math.max(VIEWPORT_MARGIN, rect.left),
-      window.innerWidth - BTN_SIZE - VIEWPORT_MARGIN,
-    );
-    let safeTop = Math.min(
-      Math.max(VIEWPORT_MARGIN, rect.top),
-      window.innerHeight - BTN_SIZE - VIEWPORT_MARGIN,
-    );
-
-    fabEl.style.left = `${safeLeft}px`;
-    fabEl.style.top = `${safeTop}px`;
+    const nextStorageKey = getPositionStorageKey();
+    if (nextStorageKey !== positionStorageKey) {
+      positionStorageKey = nextStorageKey;
+      applyPosition(getPositionForViewport());
+    } else {
+      applyPosition(getSafePosition(rect.left, rect.top));
+    }
 
     if (isChatOpen) {
       positionWindowNearFab();
     }
-  });
+  };
+  window.addEventListener("resize", fabResizeHandler);
 }
 
 /**
@@ -454,6 +510,10 @@ export function syncChatbotVisibility() {
     }
   } else if (isChatInitialized) {
     // Đăng xuất: gỡ bỏ widget và đóng trạng thái mở
+    if (fabResizeHandler) {
+      window.removeEventListener("resize", fabResizeHandler);
+      fabResizeHandler = null;
+    }
     if (fabEl) fabEl.remove();
     if (windowEl) windowEl.remove();
     fabEl = null;

@@ -27,6 +27,49 @@ let backgroundAbortController = null;
 const osrmGeometryCache = new Map();
 const geocodeCache = new Map();
 
+function showFatalMapError(container, error) {
+  const overlay = container.querySelector("#status-overlay");
+  const spinner = container.querySelector("#spinner");
+  const text = container.querySelector("#status-text");
+  const retryButton = container.querySelector("#retry-btn");
+  const trafficStatus = container.querySelector("#traffic-time-status");
+  const trafficMessage = container.querySelector("#traffic-time-message");
+  const trafficSpinner = container.querySelector("#traffic-time-spinner");
+  const trafficRetryButton = container.querySelector("#traffic-time-retry");
+  if (!overlay || !text || !retryButton) return;
+
+  overlay.hidden = false;
+  overlay.dataset.state = "error";
+  overlay.classList.remove("is-loading", "is-empty");
+  overlay.classList.add("is-error");
+  overlay.setAttribute("role", "alert");
+  overlay.setAttribute("aria-busy", "false");
+  if (spinner) spinner.hidden = true;
+  text.textContent =
+    error instanceof Error ? error.message : "Không thể khởi tạo bản đồ.";
+  retryButton.hidden = false;
+  retryButton.addEventListener(
+    "click",
+    () => window.location.reload(),
+    { once: true },
+  );
+  if (trafficStatus) {
+    if (trafficMessage) trafficMessage.textContent = "Không thể khởi tạo dữ liệu bản đồ.";
+    trafficStatus.classList.add("error");
+    trafficStatus.setAttribute("role", "alert");
+    trafficStatus.setAttribute("aria-busy", "false");
+  }
+  if (trafficSpinner) trafficSpinner.hidden = true;
+  if (trafficRetryButton) {
+    trafficRetryButton.hidden = false;
+    trafficRetryButton.addEventListener(
+      "click",
+      () => window.location.reload(),
+      { once: true },
+    );
+  }
+}
+
 function initMapPage() {
   const ENV = (typeof import.meta !== "undefined" && import.meta.env) ? import.meta.env : {};
 
@@ -51,6 +94,11 @@ function initMapPage() {
   // DOM Elements
   // ============================================================
   const statusOverlay = document.getElementById("status-overlay");
+  const statusText = document.getElementById("status-text");
+  const statusSpinner = document.getElementById("spinner");
+  const retryButton = document.getElementById("retry-btn");
+  const tileWarning = document.getElementById("tile-warning");
+  const tileRetryButton = document.getElementById("tile-retry-btn");
   const trafficTimeSlider = document.getElementById("traffic-time-slider");
   const trafficTimeValue = document.getElementById("traffic-time-value");
   const trafficTimePrevious = document.getElementById("traffic-time-previous");
@@ -59,8 +107,12 @@ function initMapPage() {
     ".traffic-forecast-option",
   );
   const trafficTimeStatus = document.getElementById("traffic-time-status");
+  const trafficTimeMessage = document.getElementById("traffic-time-message");
+  const trafficTimeSpinner = document.getElementById("traffic-time-spinner");
+  const trafficTimeRetryButton = document.getElementById("traffic-time-retry");
   const roadSearchForm = document.getElementById("road-search");
   const roadQueryInput = document.getElementById("road-query");
+  const searchStatus = document.getElementById("search-status");
   const searchResultsUl = document.getElementById("search-results");
   const routeForm = document.getElementById("route-form");
   const routeOriginInput = document.getElementById("route-origin");
@@ -69,6 +121,8 @@ function initMapPage() {
   const routeSubmitButton = document.getElementById("route-submit");
   const routeCancelButton = document.getElementById("route-cancel");
   const routeStatus = document.getElementById("route-status");
+  const routeStatusMessage = document.getElementById("route-status-message");
+  const routeStatusSpinner = document.getElementById("route-status-spinner");
   const routeSummary = document.getElementById("route-summary");
   const routeDistance = document.getElementById("route-distance");
   const routeDuration = document.getElementById("route-duration");
@@ -88,6 +142,21 @@ function initMapPage() {
   const mapLayout = document.getElementById("map-layout");
   const tabShowMap = document.getElementById("tab-show-map");
   const tabShowPanel = document.getElementById("tab-show-panel");
+  const panelCollapseButton = document.getElementById("panel-collapse-btn");
+
+  function setMapStatus(state, message = "") {
+    if (!statusOverlay) return;
+    statusOverlay.dataset.state = state;
+    statusOverlay.hidden = state === "ready";
+    statusOverlay.classList.toggle("is-loading", state === "loading");
+    statusOverlay.classList.toggle("is-empty", state === "empty");
+    statusOverlay.classList.toggle("is-error", state === "error");
+    statusOverlay.setAttribute("role", state === "error" ? "alert" : "status");
+    statusOverlay.setAttribute("aria-busy", String(state === "loading"));
+    if (statusText) statusText.textContent = message;
+    if (statusSpinner) statusSpinner.hidden = state !== "loading";
+    if (retryButton) retryButton.hidden = state !== "error" && state !== "empty";
+  }
 
   function switchToMapView() {
     if (mapLayout) {
@@ -102,7 +171,7 @@ function initMapPage() {
     }
     setTimeout(() => {
       if (activeMap) activeMap.invalidateSize();
-    }, 60);
+    }, 260);
   }
 
   function switchToPanelView() {
@@ -116,18 +185,24 @@ function initMapPage() {
       tabShowMap.classList.remove("active");
       tabShowMap.setAttribute("aria-selected", "false");
     }
+    setTimeout(() => {
+      if (activeMap) activeMap.invalidateSize();
+    }, 260);
   }
 
   if (tabShowMap && tabShowPanel) {
     tabShowMap.addEventListener("click", switchToMapView);
     tabShowPanel.addEventListener("click", switchToPanelView);
   }
+  panelCollapseButton?.addEventListener("click", switchToMapView);
 
   // ============================================================
   // Khởi tạo bản đồ với chế độ render Canvas tối ưu
   // ============================================================
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
   const map = L.map("map-canvas", {
     preferCanvas: true, // Render Canvas thay vì SVG DOM riêng lẻ để tối ưu hiệu năng
+    renderer: L.canvas({ padding: 0.5, tolerance: coarsePointer ? 16 : 8 }),
     updateWhenZooming: false,
     updateWhenIdle: true,
     zoomAnimation: true,
@@ -145,11 +220,23 @@ function initMapPage() {
     maxZoom: 19,
     attribution: TILE_ATTRIBUTION,
   });
-  tileLayer.addTo(map);
-
-  tileLayer.on("load", () => {
-    if (statusOverlay) statusOverlay.style.display = "none";
+  let tileLoadHadError = false;
+  tileLayer.on("loading", () => {
+    tileLoadHadError = false;
+    if (tileWarning) tileWarning.hidden = true;
   });
+  tileLayer.on("tileerror", () => {
+    tileLoadHadError = true;
+  });
+  tileLayer.on("load", () => {
+    if (tileWarning) tileWarning.hidden = !tileLoadHadError;
+    if (tileRetryButton) tileRetryButton.disabled = false;
+  });
+  tileRetryButton?.addEventListener("click", () => {
+    tileRetryButton.disabled = true;
+    tileLayer.redraw();
+  });
+  tileLayer.addTo(map);
 
   // Tự động căn chỉnh kích thước sau khi mount
   setTimeout(() => {
@@ -175,8 +262,14 @@ function initMapPage() {
 
   function setRouteStatus(message, isError = false) {
     if (!routeStatus) return;
-    routeStatus.textContent = message;
+    const isLoading = !isError && message.startsWith("Đang ");
+    if (routeStatusMessage) routeStatusMessage.textContent = message;
+    else routeStatus.textContent = message;
     routeStatus.classList.toggle("error", isError);
+    routeStatus.classList.toggle("is-loading", isLoading);
+    routeStatus.setAttribute("aria-busy", String(isLoading));
+    routeStatus.setAttribute("role", isError ? "alert" : "status");
+    if (routeStatusSpinner) routeStatusSpinner.hidden = !isLoading;
   }
 
   async function fetchWithTimeout(url, timeoutMs = 12000, signal = null) {
@@ -374,11 +467,12 @@ function initMapPage() {
     });
     if (!list.childElementCount) {
       hideRouteSuggestions(kind);
-      setRouteStatus("Không tìm thấy gợi ý phù hợp tại Hà Nội.", true);
+      setRouteStatus("Không tìm thấy gợi ý phù hợp tại Hà Nội.");
       return;
     }
     list.hidden = false;
     input.setAttribute("aria-expanded", "true");
+    setRouteStatus(`Tìm thấy ${results.length} gợi ý. Chọn một địa điểm.`);
   }
 
   async function geocodeAddress(query) {
@@ -505,7 +599,7 @@ function initMapPage() {
   }
 
   const LINE_STYLE = {
-    weight: 7,
+    weight: coarsePointer ? 10 : 7,
     opacity: 0.88,
     smoothFactor: 1.0,
     lineCap: "round",
@@ -517,6 +611,7 @@ function initMapPage() {
   let trafficRequestId = 0;
   let displayedTrafficIndex = 0;
   let displayedTrafficMode = "current";
+  let trafficRetryMode = null;
   const trafficLayerGroup = L.featureGroup().addTo(map);
   const ROUTE_TRAFFIC_MATCH_DISTANCE_METERS = 35;
 
@@ -663,7 +758,9 @@ function initMapPage() {
     });
     group.on("mouseover", () => {
       if (!routeActive) {
-        entry.segmentLayers.forEach((l) => l.setStyle({ weight: 11, opacity: 1.0 }));
+        entry.segmentLayers.forEach((l) =>
+          l.setStyle({ weight: coarsePointer ? 13 : 11, opacity: 1.0 }),
+        );
       }
     });
     group.on("mouseout", () => {
@@ -803,10 +900,15 @@ function initMapPage() {
     });
   }
 
-  function setTrafficTimeStatus(message, isError = false) {
+  function setTrafficTimeStatus(message, isError = false, isLoading = false) {
     if (!trafficTimeStatus) return;
-    trafficTimeStatus.textContent = message;
+    if (trafficTimeMessage) trafficTimeMessage.textContent = message;
+    else trafficTimeStatus.textContent = message;
     trafficTimeStatus.classList.toggle("error", isError);
+    trafficTimeStatus.classList.toggle("is-loading", isLoading);
+    trafficTimeStatus.setAttribute("aria-busy", String(isLoading));
+    trafficTimeStatus.setAttribute("role", isError ? "alert" : "status");
+    if (trafficTimeSpinner) trafficTimeSpinner.hidden = !isLoading;
   }
 
   function getTrafficMode(index) {
@@ -903,7 +1005,11 @@ function initMapPage() {
     trafficForecastButtons.forEach((button) => {
       button.disabled = true;
     });
-    setTrafficTimeStatus("Đang tải dữ liệu giao thông...");
+    if (trafficTimeRetryButton) {
+      trafficTimeRetryButton.hidden = true;
+      trafficTimeRetryButton.disabled = true;
+    }
+    setTrafficTimeStatus("Đang tải dữ liệu giao thông...", false, true);
 
     try {
       let updatedEdges;
@@ -958,20 +1064,24 @@ function initMapPage() {
         updateTrafficSlider(displayedTrafficIndex);
       }
       setActiveTrafficMode(mode);
+      trafficRetryMode = null;
       setTrafficTimeStatus(statusMessage);
     } catch (error) {
       if (requestId !== trafficRequestId || isDestroyed) return;
       updateTrafficSlider(displayedTrafficIndex);
       setActiveTrafficMode(displayedTrafficMode);
+      trafficRetryMode = mode;
       setTrafficTimeStatus(
         error instanceof Error
           ? `Không thể tải dữ liệu: ${error.message}`
           : "Không thể tải dữ liệu giao thông.",
         true,
       );
+      if (trafficTimeRetryButton) trafficTimeRetryButton.hidden = false;
     } finally {
       if (requestId === trafficRequestId && !isDestroyed) {
         trafficTimeSlider.disabled = false;
+        if (trafficTimeRetryButton) trafficTimeRetryButton.disabled = false;
         trafficForecastButtons.forEach((button) => {
           button.disabled = false;
         });
@@ -979,6 +1089,10 @@ function initMapPage() {
       }
     }
   }
+
+  trafficTimeRetryButton?.addEventListener("click", () => {
+    loadTrafficTime(trafficRetryMode || "current");
+  });
 
   trafficTimeSlider?.addEventListener("input", () => {
     updateTrafficSlider(trafficTimeSlider.value);
@@ -1046,22 +1160,51 @@ function initMapPage() {
     })}`);
   }
 
-  // Khởi động nạp dữ liệu và vẽ bản đồ tối ưu
-  (async () => {
+  let initialRoadRequestId = 0;
+
+  async function loadInitialRoads() {
+    const requestId = ++initialRoadRequestId;
+    setMapStatus("loading", "Đang tải dữ liệu đường giao thông...");
+    setTrafficSliderEnabled(false);
+    setTrafficTimeStatus("Đang tải tình trạng giao thông...", false, true);
+    if (retryButton) retryButton.disabled = true;
+    if (searchStatus) {
+      searchStatus.textContent = "Đang tải dữ liệu tuyến đường...";
+      searchStatus.classList.remove("error", "is-empty");
+      searchStatus.setAttribute("aria-busy", "true");
+    }
+
     try {
       const edges = await fetchEdges();
-      if (isDestroyed || !activeMap) return;
+      if (requestId !== initialRoadRequestId || isDestroyed || !activeMap) return;
 
       if (!edges || edges.length === 0) {
-        if (statusOverlay) {
-          statusOverlay.textContent = "Không tìm thấy dữ liệu đoạn đường nào từ hệ thống.";
-          statusOverlay.style.display = "block";
+        trafficLayerGroup.clearLayers();
+        mapPolylines.length = 0;
+        corridorEntries = [];
+        setMapStatus("empty", "Chưa có dữ liệu đoạn đường để hiển thị trên bản đồ.");
+        setTrafficTimeStatus("Chưa có dữ liệu giao thông để tải.");
+        if (searchStatus) {
+          searchStatus.textContent = "Chưa có dữ liệu tuyến đường để tra cứu.";
+          searchStatus.classList.add("is-empty");
+          searchStatus.setAttribute("aria-busy", "false");
         }
+        searchResultsUl?.replaceChildren();
         return;
       }
 
+      trafficLayerGroup.clearLayers();
+      mapPolylines.length = 0;
+      corridorEntries = [];
       const corridors = groupByCorridor(edges);
       corridorEntries = corridors.map((corridor) => drawCorridorImmediate(corridor));
+      setMapStatus("ready");
+      if (searchStatus) {
+        searchStatus.textContent = "Nhập tên đường để tìm và chọn một vị trí.";
+        searchStatus.classList.remove("error", "is-empty");
+        searchStatus.setAttribute("aria-busy", "false");
+      }
+      searchResultsUl?.replaceChildren();
 
       // Tự động căn chỉnh bản đồ theo các tuyến đường thực tế
       const allLayers = corridorEntries.flatMap((c) => c.segmentLayers);
@@ -1119,13 +1262,26 @@ function initMapPage() {
         roadSearchForm.requestSubmit();
       }
     } catch (err) {
-      if (statusOverlay) {
-        statusOverlay.textContent = `Không thể kết nối đến máy chủ giao thông: ${err.message}`;
-        statusOverlay.style.display = "block";
-        statusOverlay.style.color = "#dc2626";
+      if (requestId !== initialRoadRequestId || isDestroyed) return;
+      const message = err instanceof Error ? err.message : "Lỗi không xác định.";
+      setMapStatus("error", `Không thể tải dữ liệu bản đồ: ${message}`);
+      setTrafficTimeStatus("Không thể tải dữ liệu giao thông.", true);
+      if (searchStatus) {
+        searchStatus.textContent = "Không thể tải tuyến đường. Hãy thử tải lại bản đồ.";
+        searchStatus.classList.add("error");
+        searchStatus.classList.remove("is-empty");
+        searchStatus.setAttribute("aria-busy", "false");
+        searchStatus.setAttribute("role", "alert");
+      }
+    } finally {
+      if (requestId === initialRoadRequestId && !isDestroyed && retryButton) {
+        retryButton.disabled = false;
       }
     }
-  })();
+  }
+
+  retryButton?.addEventListener("click", loadInitialRoads);
+  loadInitialRoads();
 
   // ============================================================
   // Tìm kiếm theo tên trục / tên đường
@@ -1149,13 +1305,13 @@ function initMapPage() {
   }
 
   function loadFavoritePlaces() {
-    try {
-      const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      throw new Error("Dữ liệu yêu thích trong trình duyệt không hợp lệ.");
     }
+    return parsed;
   }
 
   function saveFavoritePlaces(list) {
@@ -1178,8 +1334,22 @@ function initMapPage() {
 
   function renderFavoritePlaces() {
     if (!favoritesListUl) return;
-    const places = loadFavoritePlaces();
     favoritesListUl.replaceChildren();
+    let places;
+    try {
+      places = loadFavoritePlaces();
+    } catch (error) {
+      const item = document.createElement("li");
+      item.className = "favorites-error";
+      item.textContent =
+        error instanceof Error
+          ? `Không thể tải danh sách yêu thích: ${error.message}`
+          : "Không thể tải danh sách yêu thích.";
+      favoritesListUl.append(item);
+      setFavoritesStatus("Có lỗi khi đọc danh sách yêu thích.", true);
+      return;
+    }
+    setFavoritesStatus("");
 
     if (!places.length) {
       const empty = document.createElement("li");
@@ -1275,7 +1445,6 @@ function initMapPage() {
     if (!favoritesOverlay) return;
     favoritesOverlay.hidden = false;
     renderFavoritePlaces();
-    setFavoritesStatus("");
   }
 
   function closeFavoritesPopup() {
@@ -1388,36 +1557,61 @@ function initMapPage() {
 
   // ============================================================
   if (roadSearchForm) {
+    function setSearchStatus(message, state = "idle") {
+      if (!searchStatus) return;
+      searchStatus.textContent = message;
+      searchStatus.classList.toggle("error", state === "error");
+      searchStatus.classList.toggle("is-empty", state === "empty");
+      searchStatus.setAttribute("aria-busy", String(state === "loading"));
+      searchStatus.setAttribute("role", state === "error" ? "alert" : "status");
+    }
+
     roadSearchForm.addEventListener("submit", (e) => {
       e.preventDefault();
       const query = roadQueryInput.value.trim();
-      if (!query) return;
+      if (!query) {
+        setSearchStatus("Nhập tên đường cần tra cứu.", "error");
+        return;
+      }
 
-      searchResultsUl.innerHTML = "";
+      searchResultsUl.replaceChildren();
+      if (!corridorEntries.length) {
+        setSearchStatus("Dữ liệu tuyến đường chưa sẵn sàng. Hãy tải lại bản đồ.", "error");
+        return;
+      }
       const matched = findMatchingCorridors(query);
 
       if (matched.length === 0) {
-        searchResultsUl.innerHTML = `<li style="padding: 10px; color: var(--text-muted); font-size: 13px;">Không tìm thấy tuyến đường phù hợp.</li>`;
+        setSearchStatus(`Không tìm thấy tuyến đường phù hợp với “${query}”.`, "empty");
         return;
       }
 
       matched.forEach((item) => {
-        const speedTxt = item.avgSpeed
-          ? ` - <small style="color:var(--text-muted)">${fmt(item.avgSpeed)} km/h</small>`
-          : "";
         const li = document.createElement("li");
-        li.className = "list-item";
-        li.innerHTML = `<strong>${item.corridor.corridor_name}</strong>${speedTxt}`;
+        const resultButton = document.createElement("button");
+        resultButton.className = "list-item";
+        resultButton.type = "button";
+        const corridorName = document.createElement("strong");
+        corridorName.textContent = item.corridor.corridor_name;
+        resultButton.append(corridorName);
+        if (item.avgSpeed) {
+          const speed = document.createElement("small");
+          speed.className = "item-value";
+          speed.textContent = `${fmt(item.avgSpeed)} km/h`;
+          resultButton.append(speed);
+        }
 
-        li.addEventListener("click", () => {
+        resultButton.addEventListener("click", () => {
           if (window.innerWidth <= 920) switchToMapView();
           const bounds = L.featureGroup(item.segmentLayers).getBounds();
           map.fitBounds(bounds, { padding: [40, 40] });
           openCorridorPopup(item, bounds.getCenter());
         });
 
+        li.append(resultButton);
         searchResultsUl.appendChild(li);
       });
+      setSearchStatus(`Tìm thấy ${matched.length} tuyến đường. Chọn tuyến để xem trên bản đồ.`);
 
       if (window.innerWidth <= 920) {
         switchToMapView();
@@ -1464,8 +1658,14 @@ function initMapPage() {
       if (routeSuggestionTimers[kind])
         clearTimeout(routeSuggestionTimers[kind]);
       hideRouteSuggestions(kind);
-      if (query.length < 3) return;
+      if (query.length < 3) {
+        setRouteStatus(
+          query ? "Nhập ít nhất 3 ký tự để tìm gợi ý." : "Nhập điểm đi và điểm đến tại Hà Nội để tính lộ trình tối ưu.",
+        );
+        return;
+      }
 
+      setRouteStatus("Đang tìm gợi ý địa điểm...");
       routeSuggestionTimers[kind] = setTimeout(() => {
         searchRoutePlaces(query, kind, requestId).catch((error) => {
           if (routeSuggestionRequestIds[kind] !== requestId) return;
@@ -1744,11 +1944,25 @@ function initMapPage() {
   const popupCanvas = document.getElementById("popup-chart-canvas");
   const popupChartRoadName = document.getElementById("popup-chart-road-name");
   const popupChartStatus = document.getElementById("popup-chart-status");
+  const popupChartStatusMessage = document.getElementById("popup-chart-status-message");
+  const popupChartSpinner = document.getElementById("popup-chart-spinner");
   const popupChartRetryBtn = document.getElementById("popup-chart-retry");
   const popupChartWrap = document.getElementById("popup-chart-wrap");
 
   let currentPopupData = null;
   let chartRequestId = 0;
+
+  function setPopupChartStatus(message, state = "ready") {
+    if (!popupChartStatus) return;
+    popupChartStatus.hidden = !message;
+    popupChartStatus.classList.toggle("is-error", state === "error");
+    popupChartStatus.classList.toggle("is-empty", state === "empty");
+    popupChartStatus.setAttribute("role", state === "error" ? "alert" : "status");
+    popupChartStatus.setAttribute("aria-busy", String(state === "loading"));
+    if (popupChartStatusMessage) popupChartStatusMessage.textContent = message;
+    else popupChartStatus.textContent = message;
+    if (popupChartSpinner) popupChartSpinner.hidden = state !== "loading";
+  }
 
   function openPopup() {
     if (popupOverlay) popupOverlay.hidden = false;
@@ -1862,11 +2076,7 @@ function initMapPage() {
       activeChart = null;
     }
     if (popupChartWrap) popupChartWrap.hidden = true;
-    if (popupChartStatus) {
-      popupChartStatus.hidden = false;
-      popupChartStatus.classList.remove("is-error");
-      popupChartStatus.textContent = "Đang tải dữ liệu tốc độ theo giờ...";
-    }
+    setPopupChartStatus("Đang tải dữ liệu tốc độ theo giờ...", "loading");
     if (popupChartRetryBtn) popupChartRetryBtn.hidden = true;
 
     try {
@@ -1877,22 +2087,22 @@ function initMapPage() {
         (speed) => speed !== null,
       );
       if (!hasData) {
-        if (popupChartStatus) {
-          popupChartStatus.textContent =
-            "Chưa có dữ liệu tốc độ theo giờ cho đoạn đường này.";
-        }
+        setPopupChartStatus(
+          "Chưa có dữ liệu tốc độ theo giờ cho đoạn đường này.",
+          "empty",
+        );
         return;
       }
 
       const hasGaps = [...series.today, ...series.average].some(
         (speed) => speed === null,
       );
-      if (popupChartStatus) {
-        popupChartStatus.hidden = !hasGaps;
-        popupChartStatus.textContent = hasGaps
+      setPopupChartStatus(
+        hasGaps
           ? "Một số khung giờ chưa có dữ liệu và được để trống trên biểu đồ."
-          : "";
-      }
+          : "",
+        hasGaps ? "empty" : "ready",
+      );
 
       const labels = Array.from({ length: 24 }, (_, hour) =>
         `${String(hour).padStart(2, "0")}:00`,
@@ -1966,11 +2176,10 @@ function initMapPage() {
       if (popupChartWrap) popupChartWrap.hidden = false;
     } catch (error) {
       if (requestId !== chartRequestId) return;
-      if (popupChartStatus) {
-        popupChartStatus.hidden = false;
-        popupChartStatus.classList.add("is-error");
-        popupChartStatus.textContent = `Không thể tải dữ liệu biểu đồ: ${error.message}`;
-      }
+      setPopupChartStatus(
+        `Không thể tải dữ liệu biểu đồ: ${error instanceof Error ? error.message : "Lỗi không xác định."}`,
+        "error",
+      );
       if (popupChartRetryBtn) popupChartRetryBtn.hidden = false;
     }
   }
@@ -1998,7 +2207,11 @@ export const mapPage = {
       ${renderHeader("/map")}
       ${renderMapView()}
     `;
-    initMapPage();
+    try {
+      initMapPage();
+    } catch (error) {
+      showFatalMapError(container, error);
+    }
   },
 
   unmount() {
