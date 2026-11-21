@@ -10,6 +10,32 @@ const CONGESTION_LABELS = {
   4: "Kẹt xe hoàn toàn",
 };
 
+function extractRouteEndpoints(input) {
+  const normalizedInput = input.trim().replace(/\s+/g, " ");
+  const match = normalizedInput.match(
+    /(?:^|\s)từ\s+(.+?)\s+(?:đến|tới|qua|sang)\s+(.+?)(?=[?!.;,]|$|\s+(?:thì|nhé|giúp tôi|với)(?:\s|$))/i,
+  );
+  if (!match) return null;
+
+  const cleanPlace = (value) => value.trim().replace(/^["'“”]+|["'“”]+$/g, "");
+  const origin = cleanPlace(match[1]);
+  const destination = cleanPlace(match[2]);
+  return origin && destination ? { origin, destination } : null;
+}
+
+function isRouteIntent(query) {
+  return [
+    "tìm đường",
+    "tìm lộ trình",
+    "chỉ đường",
+    "lộ trình",
+    "đường đi tối ưu",
+    "tuyến đường tối ưu",
+    "đường nhanh nhất",
+    "đường ngắn nhất",
+  ].some((phrase) => query.includes(phrase));
+}
+
 /**
  * Lấy lời chào mặc định ban đầu khi mở Chatbot
  * @returns {{ role: string, content: string, timestamp: string, actions: Array<{ text: string, path: string }> }}
@@ -49,6 +75,38 @@ export function getQuickPillSuggestions() {
 export async function processChatMessage(userInput, cachedEdges = null) {
   const query = (userInput || "").trim().toLowerCase();
   const timestamp = new Date().toISOString();
+  const routeEndpoints = extractRouteEndpoints(userInput || "");
+
+  if (isRouteIntent(query) || routeEndpoints) {
+    if (!routeEndpoints) {
+      return {
+        role: "model",
+        content:
+          "Mình có thể mở công cụ tìm lộ trình. Bạn cho mình biết điểm đi và điểm đến, ví dụ: **Tìm đường từ Láng đến Nguyễn Trãi, Hà Đông**.",
+        timestamp,
+        actions: [{ text: "Mở bản đồ tìm đường", path: "/map" }],
+      };
+    }
+
+    const params = new URLSearchParams({
+      origin: routeEndpoints.origin,
+      destination: routeEndpoints.destination,
+      chat_route: "1",
+    });
+    return {
+      role: "model",
+      content:
+        `Mình đã nhận diện điểm đi **${routeEndpoints.origin}** và điểm đến **${routeEndpoints.destination}**. ` +
+        "Mở bản đồ để hệ thống tự tính lộ trình, quãng đường và thời gian ước tính; bản đồ cũng hiển thị tình trạng giao thông trên tuyến.",
+      timestamp,
+      actions: [
+        {
+          text: "Tính lộ trình trên bản đồ",
+          path: `/map?${params.toString()}`,
+        },
+      ],
+    };
+  }
 
   // Nạp dữ liệu giao thông thời gian thực nếu chưa có
   let edges = cachedEdges;

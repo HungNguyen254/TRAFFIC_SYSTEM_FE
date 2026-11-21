@@ -82,6 +82,9 @@ export function openMobileMenu() {
   const menu = document.getElementById("site-menu");
   const btn = document.getElementById("nav-toggle");
   const bd = document.getElementById("nav-backdrop");
+  if (bd && bd.parentElement !== document.body) {
+    document.body.appendChild(bd);
+  }
   if (menu) menu.classList.add("mobile-open");
   if (btn) {
     btn.classList.add("active");

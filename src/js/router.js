@@ -5,6 +5,18 @@ let routes = {};
 let currentController = null;
 let appContainer = null;
 
+function closeMobileNavigation() {
+  const menu = document.getElementById("site-menu");
+  const toggleButton = document.getElementById("nav-toggle");
+  menu?.classList.remove("mobile-open");
+  toggleButton?.classList.remove("active");
+  toggleButton?.setAttribute("aria-expanded", "false");
+  document.querySelectorAll(".nav-backdrop").forEach((backdrop) => {
+    backdrop.classList.remove("active");
+    if (backdrop.parentElement === document.body) backdrop.remove();
+  });
+}
+
 /**
  * Chuẩn hóa path URL (xử lý đuôi .html, query params, hash)
  * @param {string} fullPath 
@@ -86,6 +98,8 @@ export function navigateTo(toPath, push = true) {
     navigateTo(guard.redirect, push);
     return;
   }
+
+  closeMobileNavigation();
 
   // Nếu đã ở đúng route và chỉ khác hash (ví dụ bấm /#forecast khi đang ở /)
   if (currentController && currentParsed.path === path && (hash || window.location.hash)) {

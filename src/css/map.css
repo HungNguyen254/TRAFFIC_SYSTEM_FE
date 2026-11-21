@@ -52,8 +52,17 @@
   max-width: 360px;
 }
 
-.status-overlay.error p {
+.status-overlay.is-error p {
   color: var(--danger);
+}
+
+.status-overlay.is-empty p {
+  max-width: 420px;
+}
+
+.status-overlay.is-error .btn-secondary,
+.status-overlay.is-empty .btn-secondary {
+  min-height: 44px;
 }
 
 .spinner {
@@ -65,7 +74,7 @@
   animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-.status-overlay.error .spinner {
+.status-overlay.is-error .spinner {
   display: none;
 }
 
@@ -111,6 +120,10 @@
   bottom: 24px;
   z-index: 900;
   padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background: #fffbeb;
   border: 1px solid #fde68a;
   border-radius: var(--radius-md);
@@ -122,6 +135,43 @@
 
 .tile-warning[hidden] {
   display: none !important;
+}
+
+.tile-retry,
+.traffic-time-retry,
+.panel-collapse-btn {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: var(--primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tile-retry:hover,
+.traffic-time-retry:hover,
+.panel-collapse-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.tile-retry:focus-visible,
+.traffic-time-retry:focus-visible,
+.panel-collapse-btn:focus-visible,
+.map-mobile-tab:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.tile-retry:disabled,
+.traffic-time-retry:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 /* ===== PANEL THÔNG TIN ===== */
@@ -160,6 +210,10 @@
   margin: 0;
   color: var(--text);
   letter-spacing: -0.02em;
+}
+
+.panel-collapse-btn {
+  display: none;
 }
 
 .time-label {
@@ -384,10 +438,17 @@
 }
 
 .route-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: 13px;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+.route-status .inline-spinner {
+  flex: 0 0 14px;
 }
 
 .route-status.error {
@@ -599,6 +660,16 @@
   font-size: 13px;
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
+}
+
+.favorites-error {
+  padding: 12px;
+  color: var(--danger);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .traffic-time-controls {
@@ -816,15 +887,153 @@
 }
 
 .traffic-time-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
 }
 
+.inline-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid #cbd5e1;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.inline-spinner[hidden] {
+  display: none !important;
+}
+
 .traffic-time-status.error {
   color: var(--danger);
   font-weight: 600;
+}
+
+.traffic-time-retry {
+  min-height: 40px;
+  align-self: flex-start;
+}
+
+.traffic-time-retry[hidden] {
+  display: none !important;
+}
+
+.map-forecast-result {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+}
+
+.map-forecast-result[hidden],
+.map-forecast-result-content[hidden] {
+  display: none !important;
+}
+
+.map-forecast-result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.map-forecast-result-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#map-forecast-result-offset {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.map-forecast-result-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.map-forecast-result-status.error {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.map-forecast-result-status.is-loading {
+  color: var(--primary);
+}
+
+.map-forecast-result-metrics {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.map-forecast-result-metrics > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.map-forecast-result-metrics dt {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.map-forecast-result-metrics dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.map-forecast-result-metrics small {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.map-forecast-result-copy {
+  display: grid;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+
+.map-forecast-result-copy p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.map-forecast-result-copy strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.map-forecast-result-copy .map-forecast-result-source {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: italic;
 }
 
 .road-search-controls {
@@ -932,6 +1141,13 @@
   font-weight: 600;
 }
 
+.search-status.is-empty {
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+}
+
 .search-results:empty {
   display: none !important;
 }
@@ -951,6 +1167,7 @@
   align-items: center;
   width: 100%;
   padding: 10px 14px;
+  min-height: 44px;
   background: #f8fafc;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1492,18 +1709,27 @@
 }
 
 .popup-chart-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 10px;
   color: var(--text-muted);
   font-size: 13px;
 }
 
-.popup-chart-status:empty,
 .popup-chart-status[hidden] {
   display: none;
 }
 
 .popup-chart-status.is-error {
   color: var(--danger);
+}
+
+.popup-chart-status.is-empty {
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
 }
 
 .popup-chart-retry {
@@ -1551,7 +1777,7 @@
     border: none;
     border-bottom: 3px solid transparent;
     cursor: pointer;
-    min-height: 46px;
+    min-height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1566,39 +1792,88 @@
   }
 
   .layout {
-    display: flex;
-    flex-direction: column;
-    height: auto;
-    min-height: calc(100vh - 61px - 46px);
+    display: block;
+    height: calc(100vh - 61px - 48px);
+    height: calc(100dvh - 61px - 48px);
+    min-height: 0;
+    overflow: hidden;
   }
 
-  /* Khi ở tab Bản đồ: Bản đồ chiếm trọn khung hình, ẩn panel */
-  .layout.view-map .map-area {
+  .layout .map-area {
+    position: absolute;
+    inset: 0;
     display: block;
-    height: calc(100vh - 61px - 46px);
+    height: 100%;
     width: 100%;
   }
 
+  /* Thu gọn bảng điều khiển khỏi bản đồ; tab thứ hai mở nó thành bottom sheet. */
   .layout.view-map .panel {
     display: none;
   }
 
-  /* Khi ở tab Tra cứu / Lộ trình: Panel hiển thị trọn vẹn */
-  .layout.view-panel .map-area {
+  .layout.view-panel .panel {
+    position: absolute;
+    inset: auto 0 0;
+    display: flex;
+    width: auto;
+    height: min(72vh, 680px);
+    height: min(72dvh, 680px);
+    min-height: 240px;
+    max-height: calc(100% - 16px);
+    padding: 22px 16px max(16px, env(safe-area-inset-bottom));
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    z-index: 1100;
+    box-shadow: 0 -12px 32px rgba(15, 23, 42, 0.18);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    animation: panel-sheet-in 180ms ease-out;
+  }
+
+  .layout.view-panel .panel::before {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 42px;
+    height: 4px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    content: "";
+    transform: translateX(-50%);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .panel-collapse-btn {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .layout.view-panel ~ .map-bottom-actions {
     display: none;
   }
 
-  .layout.view-panel .panel {
-    display: block;
-    width: 100%;
-    min-height: calc(100vh - 61px - 46px);
-    border-left: none;
-    border-top: none;
-    padding: 20px 16px;
+  .map-bottom-actions {
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    gap: 8px;
   }
 
-  .popup-toggle-btn {
-    bottom: 24px;
+  .map-bottom-actions .popup-toggle-btn {
+    flex: 1;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 12px;
   }
 
   .leaflet-road-popup .leaflet-popup-content-wrapper {
@@ -1606,12 +1881,24 @@
   }
 
   .route-actions {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .route-actions button {
     width: 100%;
     min-height: 44px;
+  }
+
+  .status-overlay {
+    padding: 24px 18px;
+  }
+
+  .tile-warning {
+    right: 12px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    left: 12px;
+    padding: 10px 12px;
+    font-size: 12px;
   }
 }
 
@@ -1625,11 +1912,74 @@
     height: 300px;
     padding: 6px;
   }
+
+  .map-bottom-actions {
+    align-items: stretch;
+  }
+
+  .map-bottom-actions .popup-toggle-btn {
+    line-height: 1.25;
+  }
+}
+
+@media (pointer: coarse) {
+  .map-mobile-tab,
+  .btn-secondary,
+  .route-pick,
+  .route-cancel,
+  .traffic-timeline-arrow,
+  .traffic-forecast-option,
+  .popup-toggle-btn,
+  .popup-close-text,
+  .popup-back-btn,
+  .popup-chart-btn,
+  .favorites-goto,
+  .favorites-remove,
+  .list-item,
+  .tile-retry,
+  .traffic-time-retry,
+  .panel-collapse-btn {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .route-pick {
+    width: 44px;
+    min-width: 44px;
+    flex-basis: 44px;
+    height: 44px;
+  }
+
+  .traffic-timeline-arrow {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  #traffic-time-slider {
+    height: 28px;
+  }
+
+  #traffic-time-slider::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  #traffic-time-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  .leaflet-control-zoom a {
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .spinner {
-    animation-duration: 2.4s;
+    animation: none;
   }
 
   .popup-box {
@@ -1638,5 +1988,20 @@
 
   .popup-overlay {
     animation: none;
+  }
+
+  .layout.view-panel .panel {
+    animation: none;
+  }
+}
+
+@keyframes panel-sheet-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }

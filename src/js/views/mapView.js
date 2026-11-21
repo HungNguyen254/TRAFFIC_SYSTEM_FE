@@ -8,27 +8,29 @@ export function renderMapView() {
   return `
     <!-- Thanh chuyển đổi chế độ xem trên di động (Mobile Tab Switcher) -->
     <div class="map-mobile-tabs" id="map-mobile-tabs" role="tablist" aria-label="Chuyển chế độ xem di động">
-      <button class="map-mobile-tab active" id="tab-show-map" role="tab" aria-selected="true" type="button">
+      <button class="map-mobile-tab active" id="tab-show-map" role="tab" aria-selected="true" aria-controls="map-area" type="button">
         Bản đồ giao thông
       </button>
-      <button class="map-mobile-tab" id="tab-show-panel" role="tab" aria-selected="false" type="button">
+      <button class="map-mobile-tab" id="tab-show-panel" role="tab" aria-selected="false" aria-controls="map-control-panel" type="button">
         Chỉ đường & Tra cứu
       </button>
     </div>
 
     <div class="layout view-map" id="map-layout">
       <!-- ===== KHU BẢN ĐỒ ===== -->
-      <section class="map-area" aria-label="Bản đồ giao thông thời gian thực">
+      <section class="map-area" id="map-area" role="tabpanel" aria-labelledby="tab-show-map" tabindex="0">
         <div id="map-canvas"></div>
 
         <!-- Lớp phủ hiển thị trạng thái đang tải / lỗi -->
         <div
           id="status-overlay"
-          class="status-overlay"
+          class="status-overlay is-loading"
+          data-state="loading"
           role="status"
           aria-live="polite"
+          aria-busy="true"
         >
-          <div class="spinner" id="spinner"></div>
+          <div class="spinner" id="spinner" aria-hidden="true"></div>
           <p id="status-text">Đang kết nối và tải bản đồ giao thông Hà Nội…</p>
           <button class="btn-secondary" id="retry-btn" type="button" hidden>
             Thử tải lại
@@ -37,15 +39,21 @@ export function renderMapView() {
 
         <!-- Cảnh báo nhỏ khi ảnh bản đồ không tải được -->
         <div id="tile-warning" class="tile-warning" role="alert" hidden>
-          Lỗi kết nối ảnh nền bản đồ. Hãy kiểm tra kết nối mạng của bạn.
+          <span>Lỗi tải ảnh nền bản đồ. Hãy kiểm tra kết nối mạng.</span>
+          <button class="tile-retry" id="tile-retry-btn" type="button">Tải lại bản đồ</button>
         </div>
       </section>
 
       <!-- ===== PANEL THÔNG TIN ===== -->
-      <aside class="panel" aria-label="Bảng điều khiển giao thông">
+      <aside class="panel" id="map-control-panel" role="tabpanel" aria-labelledby="tab-show-panel" tabindex="0" aria-label="Bảng điều khiển giao thông">
         <div class="panel-header">
-          <div class="section-eyebrow">ĐIỀU HƯỚNG GIS</div>
-          <h1>Bản đồ & Lộ trình</h1>
+          <div>
+            <div class="section-eyebrow">ĐIỀU HƯỚNG GIS</div>
+            <h1>Bản đồ & Lộ trình</h1>
+          </div>
+          <button class="panel-collapse-btn" id="panel-collapse-btn" type="button" aria-label="Thu gọn bảng điều khiển">
+            Thu gọn
+          </button>
         </div>
 
         <!-- FORM CHỈ ĐƯỜNG THÔNG MINH -->
@@ -178,8 +186,10 @@ export function renderMapView() {
             id="route-status"
             role="status"
             aria-live="polite"
+            aria-busy="false"
           >
-            Nhập điểm đi và điểm đến tại Hà Nội để tính lộ trình tối ưu.
+            <span class="inline-spinner" id="route-status-spinner" aria-hidden="true" hidden></span>
+            <span id="route-status-message">Nhập điểm đi và điểm đến tại Hà Nội để tính lộ trình tối ưu.</span>
           </p>
 
           <div
@@ -305,9 +315,49 @@ export function renderMapView() {
               </button>
             </div>
           </div>
-          <p class="traffic-time-status" id="traffic-time-status" role="status" aria-live="polite">
-            Đang tải tình trạng giao thông...
+          <p class="traffic-time-status" id="traffic-time-status" role="status" aria-live="polite" aria-busy="true">
+            <span class="inline-spinner" id="traffic-time-spinner" aria-hidden="true"></span>
+            <span id="traffic-time-message">Đang tải tình trạng giao thông...</span>
           </p>
+          <button class="traffic-time-retry" id="traffic-time-retry" type="button" hidden>
+            Thử tải lại
+          </button>
+          <section
+            class="map-forecast-result"
+            id="map-forecast-result"
+            aria-labelledby="map-forecast-result-title"
+            hidden
+          >
+            <div class="map-forecast-result-heading">
+              <h3 id="map-forecast-result-title">Kết quả dự báo</h3>
+              <span id="map-forecast-result-offset"></span>
+            </div>
+            <p class="map-forecast-result-status" id="map-forecast-result-status" role="status" aria-live="polite">
+              Đang chờ dự báo.
+            </p>
+            <div class="map-forecast-result-content" id="map-forecast-result-content" hidden>
+              <dl class="map-forecast-result-metrics">
+                <div>
+                  <dt>Mức ùn tắc dự kiến</dt>
+                  <dd id="map-forecast-result-level"></dd>
+                </div>
+                <div>
+                  <dt>Thời điểm dự báo</dt>
+                  <dd id="map-forecast-result-time"></dd>
+                </div>
+                <div>
+                  <dt>Đồng thuận mô hình</dt>
+                  <dd id="map-forecast-result-agreement"></dd>
+                  <small id="map-forecast-result-agreement-note"></small>
+                </div>
+              </dl>
+              <div class="map-forecast-result-copy">
+                <p><strong>Nhận xét</strong><span id="map-forecast-result-comment"></span></p>
+                <p><strong>Khuyến nghị</strong><span id="map-forecast-result-recommendation"></span></p>
+                <p class="map-forecast-result-source" id="map-forecast-result-source"></p>
+              </div>
+            </div>
+          </section>
         </section>
 
         <!-- CHÚ GIẢI MỨC ĐỘ GIAO THÔNG -->
@@ -346,6 +396,7 @@ export function renderMapView() {
           id="search-status"
           role="status"
           aria-live="polite"
+          aria-busy="false"
         >
           Nhập tên đường để tìm và chọn một vị trí.
         </p>
@@ -354,6 +405,7 @@ export function renderMapView() {
           class="search-results"
           id="search-results"
           aria-label="Kết quả tìm kiếm"
+          aria-live="polite"
         ></ul>
       </aside>
     </div>
@@ -469,7 +521,10 @@ export function renderMapView() {
             “Hôm nay” được ước tính từ hồ sơ lịch sử của cùng thứ; đường trung bình tổng hợp dữ liệu các thứ có sẵn trong tuần.
             Đây chưa phải số đo thực tế trong ngày.
           </p>
-          <p class="popup-chart-status" id="popup-chart-status" role="status" aria-live="polite"></p>
+          <p class="popup-chart-status" id="popup-chart-status" role="status" aria-live="polite" aria-busy="false">
+            <span class="inline-spinner" id="popup-chart-spinner" aria-hidden="true" hidden></span>
+            <span id="popup-chart-status-message"></span>
+          </p>
           <button class="popup-chart-retry" id="popup-chart-retry" type="button" hidden>
             Thử tải lại
           </button>
