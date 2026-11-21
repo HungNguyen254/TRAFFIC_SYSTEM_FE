@@ -59,6 +59,136 @@ export function renderAdminView() {
           </article>
         </div>
 
+        <section class="admin-card admin-user-section" aria-labelledby="admin-user-title">
+          <div class="admin-road-heading">
+            <div>
+              <div class="section-eyebrow">TÀI KHOẢN NGƯỜI DÙNG</div>
+              <h2 id="admin-user-title">Quản lý người dùng</h2>
+              <p>Tìm theo email hoặc tên, cập nhật thông tin và vai trò, hoặc xóa tài khoản.</p>
+            </div>
+          </div>
+          <form class="admin-user-search" id="admin-user-search-form">
+            <input
+              id="admin-user-search-input"
+              name="query"
+              type="search"
+              placeholder="Nhập email hoặc tên người dùng..."
+              autocomplete="off"
+              maxlength="100"
+            />
+            <button class="btn" type="submit">Tìm kiếm</button>
+            <button class="btn-secondary" id="admin-user-reset" type="button">Xem tất cả</button>
+          </form>
+          <p class="form-message admin-user-status" id="admin-user-status" role="status" aria-live="polite"></p>
+          <div class="admin-table-container">
+            <table class="admin-table admin-user-table">
+              <thead>
+                <tr>
+                  <th>Tên người dùng</th>
+                  <th>Email</th>
+                  <th>Vai trò</th>
+                  <th>Ngày tạo</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="admin-user-rows">
+                <tr><td colspan="5" class="admin-empty">Đang tải danh sách tài khoản...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="admin-card admin-road-section" aria-labelledby="admin-road-title">
+          <div class="admin-road-heading">
+            <div>
+              <div class="section-eyebrow">MẠNG LƯỚI GIAO THÔNG</div>
+              <h2 id="admin-road-title">Quản lý đoạn đường</h2>
+              <p>Vẽ đoạn đường trên bản đồ, cập nhật thông tin hoặc xóa tuyến không còn sử dụng.</p>
+            </div>
+            <button class="btn" id="admin-road-new" type="button">Vẽ đoạn đường mới</button>
+          </div>
+
+          <div class="admin-road-editor">
+            <form class="admin-road-form" id="admin-road-form">
+              <div class="admin-road-field">
+                <label for="admin-road-code">Mã đoạn đường</label>
+                <input id="admin-road-code" name="edge_code" maxlength="20" required />
+              </div>
+              <div class="admin-road-field">
+                <label for="admin-road-name">Tên đường</label>
+                <input id="admin-road-name" name="street_name" maxlength="100" required />
+              </div>
+              <div class="admin-road-field">
+                <label for="admin-road-district">Khu vực / quận</label>
+                <input
+                  id="admin-road-district"
+                  name="district"
+                  list="admin-road-district-options"
+                  maxlength="50"
+                  required
+                />
+                <datalist id="admin-road-district-options"></datalist>
+              </div>
+              <div class="admin-road-field">
+                <label for="admin-road-speed">Tốc độ tối đa (km/h)</label>
+                <input
+                  id="admin-road-speed"
+                  name="max_speed_limit"
+                  type="number"
+                  min="1"
+                  max="200"
+                  value="50"
+                  required
+                />
+              </div>
+              <p class="admin-road-length" id="admin-road-length">Chiều dài: --</p>
+              <div class="admin-road-form-actions">
+                <button class="btn-secondary" id="admin-road-draw" type="button">
+                  Vẽ / vẽ lại tuyến
+                </button>
+                <button class="btn-secondary" id="admin-road-finish" type="button" hidden disabled>
+                  Hoàn tất vẽ
+                </button>
+                <button class="btn" id="admin-road-save" type="submit" disabled>
+                  Lưu đoạn đường
+                </button>
+                <button class="btn-danger" id="admin-road-cancel" type="button" hidden>
+                  Hủy
+                </button>
+              </div>
+              <p class="form-message admin-road-status" id="admin-road-status" role="status" aria-live="polite">
+                Chọn “Vẽ đoạn đường mới” hoặc sửa một đoạn trong danh sách.
+              </p>
+            </form>
+
+            <div class="admin-map-column">
+              <p class="admin-map-hint" id="admin-map-hint">
+                Nhấp lên bản đồ để thêm điểm vào tuyến đang vẽ.
+              </p>
+              <div id="admin-road-map" aria-label="Bản đồ để vẽ đoạn đường"></div>
+            </div>
+          </div>
+
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Mã</th>
+                  <th>Tên đường</th>
+                  <th>Khu vực</th>
+                  <th>Chiều dài</th>
+                  <th>Tốc độ tối đa</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="admin-road-rows">
+                <tr><td colspan="6" class="admin-empty">Đang tải dữ liệu đoạn đường...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="admin-feedback" id="admin-road-list-status" role="status" aria-live="polite"></p>
+        </section>
+
         <!-- THÔNG SỐ VẬN HÀNH HỆ THỐNG -->
         <article class="card admin-card" style="margin-top: 24px;">
           <div class="section-eyebrow">GIÁM SÁT HẠ TẦNG</div>

@@ -56,6 +56,17 @@ export function renderMapView() {
           </button>
         </div>
 
+        <button
+          class="btn-secondary search-history-toggle"
+          id="search-history-toggle"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="search-history-overlay"
+          hidden
+        >
+          Lịch sử tìm kiếm
+        </button>
+
         <!-- FORM CHỈ ĐƯỜNG THÔNG MINH -->
         <form class="route-form" id="route-form">
           <div class="route-form-title">TÌM ĐƯỜNG THEO VẬN TỐC</div>
@@ -463,6 +474,39 @@ export function renderMapView() {
           class="favorites-list"
           id="favorites-list"
           aria-label="Danh sách tuyến đường và địa điểm yêu thích"
+        ></ul>
+      </div>
+    </div>
+
+    <!-- ===== SEARCH HISTORY POPUP ===== -->
+    <div class="popup-overlay" id="search-history-overlay" hidden>
+      <div
+        class="popup-box search-history-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="search-history-title"
+      >
+        <button
+          class="popup-close-text"
+          id="search-history-close"
+          type="button"
+          title="Đóng cửa sổ"
+          aria-label="Đóng"
+        >
+          Đóng
+        </button>
+        <div class="section-eyebrow">CÁC TÌM KIẾM GẦN ĐÂY</div>
+        <h2 class="popup-title" id="search-history-title">Lịch sử tìm kiếm</h2>
+        <p
+          class="favorites-status"
+          id="search-history-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <ul
+          class="favorites-list search-history-list"
+          id="search-history-list"
+          aria-label="Lịch sử tìm kiếm địa điểm và tuyến đường"
         ></ul>
       </div>
     </div>
