@@ -318,10 +318,14 @@ async function sendUserMessage(text) {
     scrollToBottom();
   } catch (err) {
     hideTypingIndicator();
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    // Thông báo riêng khi vượt giới hạn 10 tin/ngày của gói Standard (429)
+    const isLimit = rawMessage.includes("10 tin nhắn") || rawMessage.includes("Premium") || rawMessage.includes("429");
     const errorMsg = {
       role: "model",
-      content:
-        "Xin lỗi, hiện tại hệ thống gặp trục trặc khi kết nối dữ liệu. Vui lòng thử lại sau.",
+      content: isLimit
+        ? `⚠️ ${rawMessage}<br/><a href="/premium" data-link style="color:#d97706;font-weight:700;">Nâng cấp Premium →</a>`
+        : "Xin lỗi, hiện tại hệ thống gặp trục trặc khi kết nối dữ liệu. Vui lòng thử lại sau.",
       timestamp: new Date().toISOString(),
     };
     messagesContainer.appendChild(createMessageBubble(errorMsg));

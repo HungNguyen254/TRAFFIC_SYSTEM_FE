@@ -1,6 +1,6 @@
 import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
-import { fetchDirections, fetchEdges, fetchRouteForecast } from "../api.js";
+import { fetchDirections, fetchEdges, fetchRouteForecast, isPremium } from "../api.js";
 import { forecastRoute } from "../services/routeForecast.js";
 import { renderCompareView } from "../views/compareView.js";
 
@@ -119,6 +119,27 @@ export const comparePage = {
       ${renderCompareView()}
       ${renderFooter()}
     `;
+
+    // Chức năng so sánh 2 tuyến đường: chỉ dành cho Premium
+    if (!isPremium()) {
+      const form = document.getElementById("compare-form");
+      const formElements = form?.querySelectorAll("input, select, button") || [];
+      formElements.forEach((el) => (el.disabled = true));
+      if (form) {
+        const lock = document.createElement("div");
+        lock.className = "premium-lock-overlay card";
+        lock.innerHTML = `
+          <h3>🔒 Tính năng Premium</h3>
+          <p>Chức năng <strong>so sánh 2 tuyến đường</strong> chỉ dành cho tài khoản <strong>Premium</strong>.</p>
+          <a href="/premium" class="btn" data-link>Nâng cấp Premium ngay</a>
+        `;
+        form.parentElement.insertBefore(lock, form);
+        form.style.display = "none";
+      }
+      const status = document.getElementById("compare-status");
+      if (status) status.textContent = "";
+      return;
+    }
 
     const form = document.getElementById("compare-form");
     const originSelect = document.getElementById("compare-origin");

@@ -38,6 +38,8 @@ export function parseRoute(fullPath) {
     path = "/login";
   } else if (path.toLowerCase() === "/admin.html" || path.toLowerCase() === "/admin") {
     path = "/admin";
+  } else if (path.toLowerCase() === "/premium.html" || path.toLowerCase() === "/premium") {
+  path = "/premium";
   } else if (path.length > 1 && path.endsWith("/")) {
     path = path.slice(0, -1);
   }

@@ -5,8 +5,10 @@ import { mapPage } from "./pages/mapPage.js";
 import { loginPage } from "./pages/loginPage.js";
 import { adminPage } from "./pages/adminPage.js";
 import { comparePage } from "./pages/comparePage.js";
+import { premiumPage } from "./pages/premiumPage.js";
 import { initChatbot } from "./components/chatbot.js";
 import { initHeaderEvents } from "./components/header.js";
+import { refreshPlan } from "./api.js";
 
 /**
  * Định nghĩa hệ thống Routes và hàng rào phân quyền (Route Guards)
@@ -27,6 +29,10 @@ const routes = {
     page: comparePage,
     meta: { requiresAuth: true, title: "So sánh tuyến đường" },
   },
+  "/premium": {
+    page: premiumPage,
+    meta: { requiresAuth: true, title: "Nâng cấp Premium" },
+  },
   "/login": {
     page: loginPage,
     meta: { public: true, title: "Đăng nhập & Tài khoản" },
@@ -44,4 +50,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initChatbot();
   initHeaderEvents();
+  refreshPlan();
 });

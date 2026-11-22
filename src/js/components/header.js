@@ -1,5 +1,5 @@
 // File: src/js/components/header.js
-import { isAdmin, isLoggedIn } from "../api.js";
+import { isAdmin, isLoggedIn, isPremium } from "../api.js";
 import { syncChatbotVisibility } from "./chatbot.js";
 
 let headerEventsInitialized = false;
@@ -18,6 +18,16 @@ export function renderHeader(currentPath = "/") {
     ? (admin ? "Tài khoản (Admin)" : "Tài khoản")
     : "Đăng nhập";
 
+  // Nút nâng cấp: chỉ hiện với user Standard; Premium hiển thị badge
+  const planBadge = logged
+    ? (isPremium()
+        ? `<span class="plan-badge premium">PREMIUM</span>`
+        : `<span class="plan-badge standard">STANDARD</span>`)
+    : "";
+  const upgradeBtn = logged && !isPremium()
+    ? `<a href="/premium" class="nav-upgrade-btn" data-link>Nâng cấp Premium</a>`
+    : "";
+
   return `
     <header class="site-header">
       <a class="logo" href="/" data-link title="Hà Nội Traffic AI">
@@ -26,6 +36,7 @@ export function renderHeader(currentPath = "/") {
           <span class="pulse-dot"></span>
           TRỰC TIẾP
         </span>
+        ${planBadge}
       </a>
 
       <!-- Nút Hamburger Menu cho Mobile -->
@@ -50,6 +61,7 @@ export function renderHeader(currentPath = "/") {
         <a href="/#forecast" data-link>Dự báo</a>
         <a href="/map" data-link ${normPath === "/map" ? 'aria-current="page"' : ""}>Bản đồ</a>
         <a href="/compare" data-link ${normPath === "/compare" ? 'aria-current="page"' : ""}>So sánh tuyến</a>
+        ${upgradeBtn}
         <a href="/login" id="nav-auth" data-link ${normPath === "/login" ? 'aria-current="page"' : ""}>
           ${authLabel}
         </a>

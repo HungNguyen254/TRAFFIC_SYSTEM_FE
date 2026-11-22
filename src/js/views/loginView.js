@@ -24,6 +24,41 @@ export function renderLoginView() {
           <button type="button" class="auth-tab" id="tab-register">
             Đăng ký
           </button>
+          <button type="button" class="auth-tab" id="tab-theme" hidden>
+            Giao diện
+          </button>
+        </div>
+
+        <!-- ===== PANEL GIAO DIỆN ===== -->
+        <div id="theme-panel" hidden>
+          <h2 class="auth-welcome">Tùy chọn giao diện</h2>
+          <p class="theme-panel-desc">
+            Chọn chế độ hiển thị. Chế độ <strong>Hệ thống</strong> sẽ tự động theo cài đặt sáng/tối của thiết bị.
+          </p>
+          <div class="theme-options" role="radiogroup" aria-label="Chọn giao diện">
+            <button type="button" class="theme-option" data-theme-choice="light" role="radio">
+              <span class="theme-preview theme-preview-light">
+                <span class="tp-dot"></span><span class="tp-bar"></span><span class="tp-bar short"></span>
+              </span>
+              <strong>Sáng</strong>
+              <small>Nền trắng, dễ nhìn ban ngày</small>
+            </button>
+            <button type="button" class="theme-option" data-theme-choice="dark" role="radio">
+              <span class="theme-preview theme-preview-dark">
+                <span class="tp-dot"></span><span class="tp-bar"></span><span class="tp-bar short"></span>
+              </span>
+              <strong>Tối</strong>
+              <small>Nền tối, dịu mắt ban đêm</small>
+            </button>
+            <button type="button" class="theme-option" data-theme-choice="system" role="radio">
+              <span class="theme-preview theme-preview-system">
+                <span class="tp-dot"></span><span class="tp-bar"></span><span class="tp-bar short"></span>
+              </span>
+              <strong>Hệ thống</strong>
+              <small>Theo cài đặt thiết bị</small>
+            </button>
+          </div>
+          <p class="form-message" id="theme-message" role="status" aria-live="polite"></p>
         </div>
 
         <!-- ===== FORM ĐĂNG NHẬP ===== -->
@@ -190,9 +225,22 @@ export function renderLoginView() {
             <dt>Vai trò</dt>
             <dd id="me-role">--</dd>
 
+            <dt>Gói dịch vụ</dt>
+            <dd id="me-plan">--</dd>
+
             <dt>Ngày tạo</dt>
             <dd id="me-created">--</dd>
           </dl>
+
+          <div class="premium-cancel-box" id="premium-cancel-box" hidden>
+            <div class="premium-cancel-info">
+              <strong>Bạn đang dùng gói Premium</strong>
+              <small>Hủy gói sẽ mất quyền dùng dự báo nâng cao, so sánh tuyến và chatbot không giới hạn.</small>
+            </div>
+            <button class="btn-danger premium-cancel-btn" id="cancel-premium-btn" type="button">
+              Hủy gói Premium
+            </button>
+          </div>
 
           <div class="auth-actions">
             <a
