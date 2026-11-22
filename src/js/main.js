@@ -1,5 +1,5 @@
 // File: src/js/main.js
-import { initRouter } from "./router.js";
+import { initRouter, navigateTo } from "./router.js";
 import { homePage } from "./pages/homePage.js";
 import { mapPage } from "./pages/mapPage.js";
 import { loginPage } from "./pages/loginPage.js";
@@ -49,6 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
     initRouter(routes, app);
   }
   initChatbot();
-  initHeaderEvents();
+  initHeaderEvents(navigateTo);
   refreshPlan();
 });

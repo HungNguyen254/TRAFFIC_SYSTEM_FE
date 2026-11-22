@@ -218,6 +218,35 @@ export function renderLoginView() {
             Tài khoản: <span id="me-name">--</span>
           </h2>
 
+          <section class="account-avatar-editor" aria-label="Ảnh đại diện">
+            <div class="account-avatar-preview" id="account-avatar-preview">
+              <img id="account-avatar-image" alt="Ảnh đại diện hiện tại" hidden />
+              <span id="account-avatar-initials" aria-hidden="true">U</span>
+            </div>
+            <div class="account-avatar-controls">
+              <strong>Ảnh đại diện</strong>
+              <small>PNG, JPEG hoặc WebP, tối đa 2 MB.</small>
+              <input
+                id="account-avatar-file"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+              />
+              <div class="account-avatar-buttons">
+                <button class="btn btn-outline" id="account-avatar-choose" type="button">
+                  Chọn ảnh
+                </button>
+                <button class="btn btn-primary" id="account-avatar-save" type="button" disabled>
+                  Lưu ảnh
+                </button>
+                <button class="btn btn-outline" id="account-avatar-delete" type="button" hidden>
+                  Xóa ảnh
+                </button>
+              </div>
+              <span id="account-avatar-message" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+
           <dl class="me-list">
             <dt>Email</dt>
             <dd id="me-email">--</dd>
