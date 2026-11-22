@@ -163,7 +163,7 @@ export function renderAdminView() {
 
             <div class="admin-map-column">
               <p class="admin-map-hint" id="admin-map-hint">
-                Nhấp lên bản đồ để thêm điểm vào tuyến đang vẽ.
+                Chọn các điểm dọc tuyến; hệ thống sẽ căn đường theo lộ trình thực tế khi hoàn tất.
               </p>
               <div id="admin-road-map" aria-label="Bản đồ để vẽ đoạn đường"></div>
             </div>

@@ -73,10 +73,16 @@ export const adminPage = {
     let editingUserId = null;
     let editingEdgeId = null;
     let coordinates = [];
+    let drawingPoints = [];
     let drawing = false;
+    let snapping = false;
+    let drawingRequestId = 0;
+    let roadRenderId = 0;
+    let geometryReady = false;
     let saving = false;
     let roadLayer = null;
     let draftLayer = null;
+    const roadGeometryCache = new Map();
 
     function setMessage(element, message, isError = false) {
       if (!element) return;
@@ -254,17 +260,25 @@ export const adminPage = {
     });
 
     function updateDrawingControls() {
-      if (drawButton) drawButton.disabled = drawing || !activeAdminMap;
+      if (drawButton) drawButton.disabled = drawing || snapping || !activeAdminMap;
       if (finishDrawButton) {
         finishDrawButton.hidden = !drawing;
-        finishDrawButton.disabled = coordinates.length < 2;
+        finishDrawButton.disabled = drawingPoints.length < 2 || snapping;
       }
       if (saveRoadButton) {
-        saveRoadButton.disabled = drawing || coordinates.length < 2 || saving;
+        saveRoadButton.disabled =
+          drawing ||
+          snapping ||
+          !geometryReady ||
+          coordinates.length < 2 ||
+          saving;
       }
       if (cancelRoadButton) {
         cancelRoadButton.hidden =
-          !editingEdgeId && !drawing && coordinates.length === 0;
+          !editingEdgeId &&
+          !drawing &&
+          !snapping &&
+          coordinates.length === 0;
       }
     }
 
@@ -288,20 +302,47 @@ export const adminPage = {
 
     function renderRoadMap() {
       if (!roadLayer) return;
+      const renderId = ++roadRenderId;
+      const pendingGeometry = [];
       roadLayer.clearLayers();
       roads.forEach((road) => {
         if (!Array.isArray(road.coordinates) || road.coordinates.length < 2) return;
         const isSelected = road.edge_id === editingEdgeId;
-        L.polyline(
+        const line = L.polyline(
           road.coordinates.map(({ lat, lng }) => [lat, lng]),
           {
             color: isSelected ? "#2563eb" : "#64748b",
             weight: isSelected ? 6 : 4,
             opacity: isSelected ? 0.95 : 0.65,
+            lineCap: "round",
+            lineJoin: "round",
           },
         )
           .bindTooltip(`${road.edge_code} · ${road.street_name}`)
           .addTo(roadLayer);
+        if (!road.has_geometry) {
+          pendingGeometry.push(
+            getRoadGeometry(road.coordinates).then((routedPoints) => {
+              if (!adminPageActive || renderId !== roadRenderId) return;
+              line.setLatLngs(
+                routedPoints.map(({ lat, lng }) => [lat, lng]),
+              );
+            }),
+          );
+        }
+      });
+      Promise.allSettled(pendingGeometry).then((results) => {
+        if (!adminPageActive || renderId !== roadRenderId) return;
+        const failedRoutes = results.filter(
+          (result) => result.status === "rejected",
+        ).length;
+        if (failedRoutes) {
+          setMessage(
+            roadListStatus,
+            `Không thể căn ${failedRoutes} đoạn đường theo đường thực tế; đang hiển thị tọa độ gốc.`,
+            true,
+          );
+        }
       });
     }
 
@@ -312,19 +353,27 @@ export const adminPage = {
       if (latLngs.length >= 2) {
         L.polyline(latLngs, {
           color: "#2563eb",
-          weight: 5,
-          opacity: 0.9,
+          weight: 7,
+          opacity: 0.88,
+          lineCap: "round",
+          lineJoin: "round",
         }).addTo(draftLayer);
       }
-      coordinates.forEach((point, index) => {
+      const markerPoints = drawingPoints.length
+        ? drawingPoints
+        : coordinates.length > 1
+          ? [coordinates[0], coordinates[coordinates.length - 1]]
+          : coordinates;
+      markerPoints.forEach((point, index) => {
         L.circleMarker([point.lat, point.lng], {
-          radius: index === 0 || index === coordinates.length - 1 ? 7 : 5,
+          radius:
+            index === 0 || index === markerPoints.length - 1 ? 7 : 5,
           color: "#ffffff",
           weight: 2,
           fillColor:
             index === 0
               ? "#16a34a"
-              : index === coordinates.length - 1
+              : index === markerPoints.length - 1
                 ? "#dc2626"
                 : "#2563eb",
           fillOpacity: 1,
@@ -335,12 +384,74 @@ export const adminPage = {
       });
 
       if (roadLength) {
+        const pointCount = drawingPoints.length || coordinates.length;
         roadLength.textContent =
           coordinates.length >= 2
-            ? `Chiều dài ước tính: ${formatRoadLength(calculateLengthKm(coordinates))} · ${coordinates.length} điểm`
-            : `Đã chọn ${coordinates.length} điểm · cần ít nhất 2 điểm`;
+            ? `Chiều dài ước tính: ${formatRoadLength(calculateLengthKm(coordinates))} · ${pointCount} điểm`
+            : `Đã chọn ${pointCount} điểm · cần ít nhất 2 điểm`;
       }
       updateDrawingControls();
+    }
+
+    async function routeDrawingPoints(points) {
+      const routingUrl = import.meta.env?.VITE_ROUTING_URL;
+      if (!routingUrl) {
+        throw new Error("Thiếu cấu hình VITE_ROUTING_URL để căn tuyến theo đường thực tế.");
+      }
+
+      const routeCoordinates = points
+        .map(({ lat, lng }) => `${lng},${lat}`)
+        .join(";");
+      const response = await fetch(
+        `${routingUrl}/${routeCoordinates}?overview=full&geometries=geojson&steps=false`,
+      );
+      if (!response.ok) {
+        throw new Error(`Dịch vụ định tuyến trả về HTTP ${response.status}.`);
+      }
+
+      const data = await response.json();
+      const geometryCoordinates = data.routes?.[0]?.geometry?.coordinates;
+      if (data.code !== "Ok" || !Array.isArray(geometryCoordinates)) {
+        throw new Error("Không tìm thấy tuyến đường phù hợp với các điểm đã chọn.");
+      }
+
+      const routedPoints = geometryCoordinates.map(([lng, lat]) => ({
+        lat: Number(lat),
+        lng: Number(lng),
+      }));
+      if (routedPoints.length > 2000) {
+        throw new Error("Tuyến vượt quá giới hạn 2.000 điểm tọa độ.");
+      }
+      if (
+        routedPoints.length < 2 ||
+        routedPoints.some(
+          ({ lat, lng }) =>
+            !Number.isFinite(lat) ||
+            !Number.isFinite(lng) ||
+            lat < -90 ||
+            lat > 90 ||
+            lng < -180 ||
+            lng > 180,
+        )
+      ) {
+        throw new Error("Dịch vụ định tuyến trả về hình học không hợp lệ.");
+      }
+
+      return routedPoints;
+    }
+
+    function getRoadGeometry(points) {
+      const cacheKey = points
+        .map(({ lat, lng }) => `${lat},${lng}`)
+        .join(";");
+      if (!roadGeometryCache.has(cacheKey)) {
+        const request = routeDrawingPoints(points).catch((error) => {
+          roadGeometryCache.delete(cacheKey);
+          throw error;
+        });
+        roadGeometryCache.set(cacheKey, request);
+      }
+      return roadGeometryCache.get(cacheKey);
     }
 
     function renderRoadRows() {
@@ -422,8 +533,12 @@ export const adminPage = {
     }
 
     function resetRoadEditor() {
+      drawingRequestId += 1;
       editingEdgeId = null;
       drawing = false;
+      snapping = false;
+      geometryReady = false;
+      drawingPoints = [];
       coordinates = [];
       roadForm?.reset();
       if (roadSpeedInput) roadSpeedInput.value = "50";
@@ -440,20 +555,28 @@ export const adminPage = {
         setMessage(roadStatus, "Bản đồ chưa sẵn sàng để vẽ.", true);
         return;
       }
+      drawingRequestId += 1;
       drawing = true;
+      snapping = false;
+      geometryReady = false;
+      drawingPoints = [];
       coordinates = [];
       draftLayer.clearLayers();
       if (drawButton) drawButton.textContent = "Đang vẽ...";
       if (mapHint) {
-        mapHint.textContent = "Nhấp lên bản đồ để thêm điểm; cần ít nhất hai điểm.";
+        mapHint.textContent = "Nhấp dọc theo tuyến đường để thêm điểm; cần ít nhất hai điểm.";
       }
       setMessage(roadStatus, "Nhấp ít nhất hai điểm trên bản đồ, sau đó chọn “Hoàn tất vẽ”.");
       renderDraftGeometry();
     }
 
-    function beginEditingRoad(road) {
+    async function beginEditingRoad(road) {
+      drawingRequestId += 1;
       editingEdgeId = road.edge_id;
       drawing = false;
+      snapping = false;
+      geometryReady = Boolean(road.has_geometry);
+      drawingPoints = [];
       coordinates = road.coordinates.map(({ lat, lng }) => ({ lat, lng }));
       if (roadCodeInput) roadCodeInput.value = road.edge_code;
       if (roadNameInput) roadNameInput.value = road.street_name;
@@ -470,6 +593,44 @@ export const adminPage = {
           L.latLngBounds(coordinates.map(({ lat, lng }) => [lat, lng])),
           { padding: [30, 30], maxZoom: 16 },
         );
+      }
+      if (!road.has_geometry) {
+        try {
+          const routedPoints = await getRoadGeometry(road.coordinates);
+          if (
+            !adminPageActive ||
+            editingEdgeId !== road.edge_id ||
+            drawing
+          ) {
+            return;
+          }
+          coordinates = routedPoints;
+          geometryReady = true;
+          renderDraftGeometry();
+          activeAdminMap?.fitBounds(
+            L.latLngBounds(routedPoints.map(({ lat, lng }) => [lat, lng])),
+            { padding: [30, 30], maxZoom: 16 },
+          );
+          setMessage(
+            roadStatus,
+            `Đã căn ${road.edge_code} theo đường giao thông thực tế. Có thể cập nhật thông tin hoặc vẽ lại tuyến.`,
+          );
+        } catch (error) {
+          if (
+            !adminPageActive ||
+            editingEdgeId !== road.edge_id ||
+            drawing
+          ) {
+            return;
+          }
+          setMessage(
+            roadStatus,
+            error instanceof Error
+              ? `Không thể căn tuyến: ${error.message}`
+              : "Không thể căn tuyến theo đường thực tế.",
+            true,
+          );
+        }
       }
     }
 
@@ -510,11 +671,13 @@ export const adminPage = {
       roadLayer = L.featureGroup().addTo(activeAdminMap);
       draftLayer = L.featureGroup().addTo(activeAdminMap);
       activeAdminMap.on("click", (event) => {
-        if (!drawing) return;
-        coordinates.push({
+        if (!drawing || snapping) return;
+        const point = {
           lat: Number(event.latlng.lat.toFixed(6)),
           lng: Number(event.latlng.lng.toFixed(6)),
-        });
+        };
+        drawingPoints.push(point);
+        coordinates = drawingPoints.map(({ lat, lng }) => ({ lat, lng }));
         renderDraftGeometry();
       });
       setTimeout(() => {
@@ -537,16 +700,56 @@ export const adminPage = {
 
     drawButton?.addEventListener("click", beginDrawing);
 
-    finishDrawButton?.addEventListener("click", () => {
-      if (coordinates.length < 2) {
+    finishDrawButton?.addEventListener("click", async () => {
+      if (drawingPoints.length < 2) {
         setMessage(roadStatus, "Cần chọn ít nhất hai điểm để hoàn tất đoạn đường.", true);
         return;
       }
-      drawing = false;
-      if (drawButton) drawButton.textContent = "Vẽ lại tuyến";
-      if (mapHint) mapHint.textContent = "Tuyến đã vẽ; chọn vẽ lại nếu cần thay đổi hình dạng.";
-      setMessage(roadStatus, `Đã vẽ tuyến qua ${coordinates.length} điểm.`);
+      const requestId = ++drawingRequestId;
+      snapping = true;
+      if (mapHint) mapHint.textContent = "Đang căn các điểm đã chọn theo đường giao thông thực tế...";
+      setMessage(roadStatus, "Đang căn tuyến theo đường giao thông thực tế...");
       updateDrawingControls();
+      try {
+        const routedPoints = await routeDrawingPoints(drawingPoints);
+        if (
+          !adminPageActive ||
+          !activeAdminMap ||
+          requestId !== drawingRequestId
+        ) {
+          return;
+        }
+        coordinates = routedPoints;
+        drawing = false;
+        geometryReady = true;
+        if (drawButton) drawButton.textContent = "Vẽ lại tuyến";
+        if (mapHint) {
+          mapHint.textContent = "Tuyến đã được căn theo đường thực tế; chọn vẽ lại nếu cần thay đổi.";
+        }
+        setMessage(
+          roadStatus,
+          `Đã căn tuyến theo đường thực tế qua ${drawingPoints.length} điểm.`,
+        );
+        renderDraftGeometry();
+      } catch (error) {
+        if (!adminPageActive || requestId !== drawingRequestId) return;
+        geometryReady = false;
+        setMessage(
+          roadStatus,
+          error instanceof Error
+            ? `Không thể căn tuyến: ${error.message}`
+            : "Không thể căn tuyến theo đường thực tế.",
+          true,
+        );
+        if (mapHint) {
+          mapHint.textContent = "Kiểm tra các điểm đã chọn rồi chọn “Hoàn tất vẽ” để thử lại.";
+        }
+      } finally {
+        if (requestId === drawingRequestId) {
+          snapping = false;
+          updateDrawingControls();
+        }
+      }
     });
 
     cancelRoadButton?.addEventListener("click", resetRoadEditor);
@@ -555,6 +758,10 @@ export const adminPage = {
       event.preventDefault();
       if (drawing || coordinates.length < 2) {
         setMessage(roadStatus, "Hãy hoàn tất đường vẽ với ít nhất hai điểm trước khi lưu.", true);
+        return;
+      }
+      if (!geometryReady) {
+        setMessage(roadStatus, "Hãy căn tuyến theo đường thực tế trước khi lưu.", true);
         return;
       }
       if (!roadForm.reportValidity()) return;
