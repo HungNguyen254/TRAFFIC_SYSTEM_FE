@@ -69,6 +69,37 @@ export const adminPage = {
     const userPagination = document.getElementById("admin-user-pagination");
     const roadPagination = document.getElementById("admin-road-pagination");
 
+    // ==== Chuyển tab phân mục quản trị ==== 
+    const tabButtons = document.querySelectorAll("#admin-tabs .admin-tab-btn");
+    function activateAdminTab(name) {
+      tabButtons.forEach((button) => {
+        const active = button.dataset.tab === name;
+        button.classList.toggle("active", active);
+        if (active) button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      });
+      ["overview", "users", "roads"].forEach((panelName) => {
+        const panel = document.getElementById(`admin-panel-${panelName}`);
+        if (panel) panel.hidden = panelName !== name;
+      });
+    }
+    tabButtons.forEach((button) => {
+      button.addEventListener("click", () => activateAdminTab(button.dataset.tab));
+    });
+    activateAdminTab("overview");
+
+    // ==== Ẩn/hiện trình sửa tuyến (form + bản đồ) trong tab đoạn đường ====
+    const roadEditorWrap = document.getElementById("admin-road-editor");
+    function setRoadEditorVisible(visible) {
+      if (roadEditorWrap) roadEditorWrap.hidden = !visible;
+      if (visible && activeAdminMap) {
+        setTimeout(() => activeAdminMap?.invalidateSize(), 50);
+      }
+    }
+    setRoadEditorVisible(false);
+    // Tự mở trình sửa khi cần vẽ mới hoặc sửa hình học tuyến
+    const openRoadEditor = () => setRoadEditorVisible(true);
+
     let roads = [];
     let districts = [];
     let users = [];
@@ -149,6 +180,26 @@ export const adminPage = {
 
     function clampPage(totalItems, page) {
       return Math.min(Math.max(1, page), Math.max(1, Math.ceil(totalItems / PAGE_SIZE)));
+    }
+
+    function updateMetrics() {
+      const totalUsers = users.length;
+      const totalAdmins = users.filter((user) => user.role === "admin").length;
+      const totalRoads = roads.length;
+      const totalLengthKm = roads.reduce(
+        (sum, road) => sum + Number(road.length_km || 0),
+        0,
+      );
+      const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      };
+      setText("metric-users", totalUsers.toLocaleString("vi-VN"));
+      setText("metric-users-sub", `${totalAdmins} quản trị viên · ${totalUsers - totalAdmins} người dùng`);
+      setText("metric-roads", totalRoads.toLocaleString("vi-VN"));
+      setText("metric-roads-sub", `Tổng chiều dài ${formatRoadLength(totalLengthKm)}`);
+      setText("metric-users-inline", totalUsers.toLocaleString("vi-VN"));
+      setText("metric-admins-inline", totalAdmins.toLocaleString("vi-VN"));
     }
 
     function renderUserRows() {
@@ -264,6 +315,7 @@ export const adminPage = {
         editingUserId = null;
         if (resetPage) userPage = 1;
         renderUserRows();
+        updateMetrics();
         setMessage(
           userStatus,
           query.trim()
@@ -628,23 +680,18 @@ export const adminPage = {
         editButton.type = "button";
         editButton.className = "admin-row-action";
         editButton.textContent = "Sửa ngay";
+        editButton.textContent = "Sửa ngay";
         editButton.addEventListener("click", () => {
           inlineEditingEdgeId = road.edge_id;
           renderRoadRows();
         });
-
-        const mapButton = document.createElement("button");
-        mapButton.type = "button";
-        mapButton.className = "admin-row-action";
-        mapButton.textContent = "Sửa tuyến";
-        mapButton.addEventListener("click", () => beginEditingRoad(road));
 
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
         deleteButton.className = "admin-row-action admin-row-delete";
         deleteButton.textContent = "Xóa";
         deleteButton.addEventListener("click", () => deleteRoad(road));
-        actions.append(editButton, mapButton, deleteButton);
+        actions.append(editButton, deleteButton);
         row.append(actions);
         roadRows.append(row);
       });
@@ -703,6 +750,7 @@ export const adminPage = {
         roadPage = clampPage(roads.length, roadPage);
         inlineEditingEdgeId = null;
         renderRoadRows();
+        updateMetrics();
         renderRoadMap();
         setMessage(roadListStatus, "");
       } catch (error) {
@@ -878,6 +926,7 @@ export const adminPage = {
 
     newRoadButton?.addEventListener("click", () => {
       resetRoadEditor();
+      openRoadEditor();
       beginDrawing();
       roadCodeInput?.focus();
     });

@@ -22,6 +22,30 @@ export function renderAdminView() {
           </div>
         </div>
 
+        <nav class="admin-tabs" id="admin-tabs" aria-label="Phân mục quản trị">
+          <button class="admin-tab-btn" type="button" data-tab="overview" aria-current="true">Tổng quan</button>
+          <button class="admin-tab-btn" type="button" data-tab="users">Quản lý người dùng</button>
+          <button class="admin-tab-btn" type="button" data-tab="roads">Quản lý đoạn đường</button>
+        </nav>
+
+        <div class="admin-panel" id="admin-panel-overview">
+        <div class="admin-metric-row">
+          <div class="admin-metric-card">
+            <div class="metric-label">Tài khoản người dùng</div>
+            <div class="metric-value" id="metric-users">--</div>
+            <div class="metric-sub" id="metric-users-sub">Đang tải...</div>
+          </div>
+          <div class="admin-metric-card">
+            <div class="metric-label">Đoạn đường</div>
+            <div class="metric-value" id="metric-roads">--</div>
+            <div class="metric-sub" id="metric-roads-sub">Đang tải...</div>
+          </div>
+          <div class="admin-metric-card">
+            <div class="metric-label">Mô hình AI</div>
+            <div class="metric-value">Neural</div>
+            <div class="metric-sub">Dự báo theo chuỗi thời gian & thời tiết</div>
+          </div>
+        </div>
         <div class="admin-grid">
           <!-- HUẤN LUYỆN LẠI MÔ HÌNH -->
           <article class="card admin-card">
@@ -58,7 +82,9 @@ export function renderAdminView() {
             </button>
           </article>
         </div>
+        </div>
 
+        <div class="admin-panel" id="admin-panel-users" hidden>
         <section class="admin-card admin-user-section" aria-labelledby="admin-user-title">
           <div class="admin-road-heading">
             <div>
@@ -80,6 +106,16 @@ export function renderAdminView() {
             <button class="btn-secondary" id="admin-user-reset" type="button">Xem tất cả</button>
           </form>
           <p class="form-message admin-user-status" id="admin-user-status" role="status" aria-live="polite"></p>
+          <div class="admin-metric-row" style="margin-bottom: 12px;">
+            <div class="admin-metric-card">
+              <div class="metric-label">Tổng số tài khoản</div>
+              <div class="metric-value" id="metric-users-inline">--</div>
+            </div>
+            <div class="admin-metric-card">
+              <div class="metric-label">Quản trị viên</div>
+              <div class="metric-value" id="metric-admins-inline">--</div>
+            </div>
+          </div>
           <div class="admin-table-container">
             <table class="admin-table admin-user-table">
               <thead>
@@ -98,7 +134,9 @@ export function renderAdminView() {
           </div>
           <nav class="admin-pagination" id="admin-user-pagination" aria-label="Phân trang người dùng" hidden></nav>
         </section>
+        </div>
 
+        <div class="admin-panel" id="admin-panel-roads" hidden>
         <section class="admin-card admin-road-section" aria-labelledby="admin-road-title">
           <div class="admin-road-heading">
             <div>
@@ -109,7 +147,7 @@ export function renderAdminView() {
             <button class="btn" id="admin-road-new" type="button">Vẽ đoạn đường mới</button>
           </div>
 
-          <div class="admin-road-editor">
+          <div class="admin-road-editor" id="admin-road-editor" hidden>
             <form class="admin-road-form" id="admin-road-form">
               <div class="admin-road-field">
                 <label for="admin-road-code">Mã đoạn đường</label>
@@ -190,6 +228,7 @@ export function renderAdminView() {
           <nav class="admin-pagination" id="admin-road-pagination" aria-label="Phân trang đoạn đường" hidden></nav>
           <p class="admin-feedback" id="admin-road-list-status" role="status" aria-live="polite"></p>
         </section>
+        </div>
 
         <!-- THÔNG SỐ VẬN HÀNH HỆ THỐNG -->
         <article class="card admin-card" style="margin-top: 24px;">
