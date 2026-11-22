@@ -4,6 +4,7 @@ import { homePage } from "./pages/homePage.js";
 import { mapPage } from "./pages/mapPage.js";
 import { loginPage } from "./pages/loginPage.js";
 import { adminPage } from "./pages/adminPage.js";
+import { comparePage } from "./pages/comparePage.js";
 import { initChatbot } from "./components/chatbot.js";
 import { initHeaderEvents } from "./components/header.js";
 
@@ -21,6 +22,10 @@ const routes = {
   "/map": {
     page: mapPage,
     meta: { requiresAuth: true, title: "Bản đồ giao thông" },
+  },
+  "/compare": {
+    page: comparePage,
+    meta: { requiresAuth: true, title: "So sánh tuyến đường" },
   },
   "/login": {
     page: loginPage,

@@ -213,7 +213,12 @@ export const loginPage = {
       try {
         await request("/auth/register", {
           method: "POST",
-          body: { email, password, full_name: fullName },
+          body: {
+            email,
+            password,
+            confirm_password: confirmPassword,
+            full_name: fullName,
+          },
         });
         showToast("Tạo tài khoản thành công! Hãy đăng nhập.", "success");
         registerForm.reset();

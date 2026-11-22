@@ -212,6 +212,14 @@
   letter-spacing: -0.02em;
 }
 
+.search-history-toggle {
+  align-self: flex-end;
+}
+
+.search-history-toggle[hidden] {
+  display: none !important;
+}
+
 .panel-collapse-btn {
   display: none;
 }
@@ -562,6 +570,22 @@
 /* ===== DANH SÁCH ĐỊA ĐIỂM YÊU THÍCH ===== */
 .favorites-box {
   width: 560px;
+}
+
+.search-history-box {
+  width: 620px;
+}
+
+.search-history-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-history-info strong {
+  overflow-wrap: anywhere;
 }
 
 .favorites-status {

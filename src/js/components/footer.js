@@ -17,6 +17,7 @@ export function renderFooter() {
           <a href="/" data-link>Trang chủ</a>
           <a href="/#forecast" data-link>Dự báo tuyến</a>
           <a href="/map" data-link>Bản đồ trực tiếp</a>
+          <a href="/compare" data-link>So sánh tuyến</a>
           <a href="/login" data-link>Cổng thông tin</a>
         </div>
 
