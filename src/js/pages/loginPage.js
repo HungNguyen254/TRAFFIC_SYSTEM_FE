@@ -12,6 +12,15 @@ import {
 import { refreshPlan } from "../api.js";
 import { showToast } from "../components/toast.js";
 import { initTheme } from "../theme.js";
+import {
+  deleteAvatar,
+  fetchAvatarObjectUrl,
+  uploadAvatar,
+  validateAvatarFile,
+} from "../services/avatar.js";
+
+let accountAvatarObjectUrl = null;
+let selectedAvatarObjectUrl = null;
 
 function getPasswordValidationMessage(password) {
   if (password.length < 6) return "Mật khẩu phải có ít nhất 6 ký tự.";
@@ -193,12 +202,134 @@ export const loginPage = {
           );
         }
         if (adminLink) adminLink.hidden = user.role !== "admin";
+        const accountName = user.full_name || user.email || "Người dùng";
+        loadAccountAvatar(accountName).catch((error) => {
+          console.warn("Could not load the account avatar.", error);
+        });
       } catch {
         // Token hết hạn -> về form đăng nhập
         clearSession();
         updateHeaderAuth();
         navigateTo("/login");
       }
+    }
+
+    function setAvatarPreview(url, name) {
+      const image = document.getElementById("account-avatar-image");
+      const initials = document.getElementById("account-avatar-initials");
+      const deleteButton = document.getElementById("account-avatar-delete");
+      if (image) {
+        image.src = url || "";
+        image.hidden = !url;
+      }
+      if (initials) {
+        const words = String(name || "U").trim().split(/\s+/).filter(Boolean);
+        initials.textContent =
+          words.length > 1
+            ? `${Array.from(words[0])[0]}${Array.from(words[words.length - 1])[0]}`
+            : Array.from(words[0] || "U").slice(0, 2).join("");
+        initials.hidden = Boolean(url);
+      }
+      if (deleteButton) deleteButton.hidden = !url;
+    }
+
+    async function loadAccountAvatar(name) {
+      if (selectedAvatarObjectUrl) return;
+      const nextUrl = await fetchAvatarObjectUrl();
+      if (accountAvatarObjectUrl) URL.revokeObjectURL(accountAvatarObjectUrl);
+      accountAvatarObjectUrl = nextUrl;
+      setAvatarPreview(nextUrl, name);
+    }
+
+    function initAvatarControls() {
+      const fileInput = document.getElementById("account-avatar-file");
+      const chooseButton = document.getElementById("account-avatar-choose");
+      const saveButton = document.getElementById("account-avatar-save");
+      const deleteButton = document.getElementById("account-avatar-delete");
+      const message = document.getElementById("account-avatar-message");
+      let selectedFile = null;
+
+      chooseButton?.addEventListener("click", () => fileInput?.click());
+      fileInput?.addEventListener("change", () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const validationMessage = validateAvatarFile(file);
+        if (validationMessage) {
+          fileInput.value = "";
+          showToast(validationMessage, "error");
+          return;
+        }
+
+        selectedFile = file;
+        if (selectedAvatarObjectUrl) URL.revokeObjectURL(selectedAvatarObjectUrl);
+        selectedAvatarObjectUrl = URL.createObjectURL(file);
+        const accountName =
+          document.getElementById("me-name")?.textContent || "Người dùng";
+        setAvatarPreview(selectedAvatarObjectUrl, accountName);
+        if (saveButton) saveButton.disabled = false;
+        if (message) message.textContent = "Xem trước ảnh mới. Nhấn Lưu ảnh để áp dụng.";
+      });
+
+      saveButton?.addEventListener("click", async () => {
+        if (!selectedFile) return;
+        saveButton.disabled = true;
+        if (chooseButton) chooseButton.disabled = true;
+        if (message) message.textContent = "Đang tải ảnh lên...";
+        try {
+          await uploadAvatar(selectedFile);
+          selectedFile = null;
+          fileInput.value = "";
+          if (selectedAvatarObjectUrl) URL.revokeObjectURL(selectedAvatarObjectUrl);
+          selectedAvatarObjectUrl = null;
+          saveButton.disabled = true;
+          const accountName =
+            document.getElementById("me-name")?.textContent || "Người dùng";
+          try {
+            await loadAccountAvatar(accountName);
+            if (message) message.textContent = "Ảnh đại diện đã được cập nhật.";
+          } catch (error) {
+            console.warn("Could not refresh the account avatar preview.", error);
+            if (message) {
+              message.textContent =
+                "Ảnh đã được lưu, nhưng không thể tải lại ảnh xem trước.";
+            }
+          }
+          document.dispatchEvent(new Event("account-avatar-updated"));
+          showToast("Cập nhật ảnh đại diện thành công.", "success");
+        } catch (error) {
+          if (message) message.textContent = error.message;
+          showToast(`Lỗi: ${error.message}`, "error");
+          saveButton.disabled = false;
+        } finally {
+          if (chooseButton) chooseButton.disabled = false;
+        }
+      });
+
+      deleteButton?.addEventListener("click", async () => {
+        deleteButton.disabled = true;
+        if (message) message.textContent = "Đang xóa ảnh...";
+        try {
+          await deleteAvatar();
+          if (accountAvatarObjectUrl) URL.revokeObjectURL(accountAvatarObjectUrl);
+          accountAvatarObjectUrl = null;
+          selectedFile = null;
+          fileInput.value = "";
+          if (selectedAvatarObjectUrl) URL.revokeObjectURL(selectedAvatarObjectUrl);
+          selectedAvatarObjectUrl = null;
+          if (saveButton) saveButton.disabled = true;
+          const accountName =
+            document.getElementById("me-name")?.textContent || "Người dùng";
+          setAvatarPreview(null, accountName);
+          if (message) message.textContent = "Đã xóa ảnh đại diện.";
+          document.dispatchEvent(new Event("account-avatar-updated"));
+          showToast("Đã xóa ảnh đại diện.", "success");
+        } catch (error) {
+          if (message) message.textContent = error.message;
+          showToast(`Lỗi: ${error.message}`, "error");
+        } finally {
+          deleteButton.disabled = false;
+        }
+      });
     }
 
     function initChangePassword() {
@@ -328,6 +459,7 @@ export const loginPage = {
       tabLogin.addEventListener("click", () => switchAccountTab(true));
       tabRegister.addEventListener("click", () => switchAccountTab(false));
       switchAccountTab(true);
+      initAvatarControls();
       initChangePassword();
       initCancelPremium();
       loadMe();
@@ -356,6 +488,7 @@ export const loginPage = {
           user_id: tokenRes.user_id,
           role: tokenRes.role,
           plan: tokenRes.plan || "standard",
+          email,
         });
         // Đồng bộ plan (và các thông tin mới nhất) từ server ngay sau khi đăng nhập
         await refreshPlan();
@@ -412,5 +545,10 @@ export const loginPage = {
     });
   },
 
-  unmount() {},
+  unmount() {
+    if (accountAvatarObjectUrl) URL.revokeObjectURL(accountAvatarObjectUrl);
+    if (selectedAvatarObjectUrl) URL.revokeObjectURL(selectedAvatarObjectUrl);
+    accountAvatarObjectUrl = null;
+    selectedAvatarObjectUrl = null;
+  },
 };

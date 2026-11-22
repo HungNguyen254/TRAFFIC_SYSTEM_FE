@@ -7,14 +7,123 @@ import {
   processChatMessage,
 } from "../services/chatService.js";
 import { navigateTo } from "../router.js";
-import { isLoggedIn } from "../api.js";
+import { getUser, isLoggedIn, isPremium } from "../api.js";
 
 const POS_STORAGE_KEY = "traffic_chatbot_pos";
 const MOBILE_POS_STORAGE_KEY = "traffic_chatbot_pos_mobile";
 const HISTORY_STORAGE_KEY = "traffic_chatbot_history";
+const DAILY_USAGE_KEY = "traffic_chatbot_daily_usage";
 const BTN_SIZE = 58;
 const VIEWPORT_MARGIN = 12;
 const MOBILE_BREAKPOINT = 640;
+export const CHAT_DAILY_LIMIT = 10;
+export const CHAT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 giờ
+
+export function getValidChatTimestamps(
+  user = typeof getUser === "function" ? getUser() : null,
+  storage = typeof localStorage !== "undefined" ? localStorage : null,
+  now = Date.now()
+) {
+  if (!storage) return [];
+  try {
+    const userId = user?.id || user?.user_id || user?.email || "anonymous";
+    const raw = storage.getItem(`${DAILY_USAGE_KEY}_${userId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.timestamps)
+          ? parsed.timestamps
+          : [];
+      return list
+        .map((ts) => Number(ts))
+        .filter((ts) => Number.isFinite(ts) && ts > 0 && now - ts < CHAT_WINDOW_MS)
+        .sort((a, b) => a - b);
+    }
+  } catch {
+    // fallback
+  }
+  return [];
+}
+
+export function getDailyChatUsage(
+  user = typeof getUser === "function" ? getUser() : null,
+  storage = typeof localStorage !== "undefined" ? localStorage : null,
+  now = Date.now()
+) {
+  return getValidChatTimestamps(user, storage, now).length;
+}
+
+export function incrementDailyChatUsage(
+  user = typeof getUser === "function" ? getUser() : null,
+  storage = typeof localStorage !== "undefined" ? localStorage : null,
+  now = Date.now()
+) {
+  if (!storage) return 1;
+  try {
+    const userId = user?.id || user?.user_id || user?.email || "anonymous";
+    const valid = getValidChatTimestamps(user, storage, now);
+    valid.push(now);
+    storage.setItem(
+      `${DAILY_USAGE_KEY}_${userId}`,
+      JSON.stringify({ timestamps: valid })
+    );
+    return valid.length;
+  } catch {
+    return 1;
+  }
+}
+
+export function getTimeUntilNextChatSlot(
+  user = typeof getUser === "function" ? getUser() : null,
+  storage = typeof localStorage !== "undefined" ? localStorage : null,
+  now = Date.now()
+) {
+  const valid = getValidChatTimestamps(user, storage, now);
+  if (valid.length < CHAT_DAILY_LIMIT) return 0;
+  const oldest = valid[0];
+  return Math.max(0, oldest + CHAT_WINDOW_MS - now);
+}
+
+export function formatRemainingTime(ms) {
+  if (ms <= 0) return "ít phút";
+  const totalMinutes = Math.ceil(ms / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) {
+    return `${hours} giờ ${minutes} phút`;
+  }
+  if (hours > 0) {
+    return `${hours} giờ`;
+  }
+  return `${minutes} phút`;
+}
+
+export function isChatQuotaExceeded(
+  user = typeof getUser === "function" ? getUser() : null,
+  storage = typeof localStorage !== "undefined" ? localStorage : null,
+  premium = typeof isPremium === "function" ? isPremium() : false,
+  now = Date.now()
+) {
+  if (premium) return false;
+  return getDailyChatUsage(user, storage, now) >= CHAT_DAILY_LIMIT;
+}
+
+function updateChatInputState() {
+  if (!inputEl || !sendBtn) return;
+  const isLimited = isChatQuotaExceeded();
+  if (isLimited) {
+    const waitMs = getTimeUntilNextChatSlot();
+    const waitText = formatRemainingTime(waitMs);
+    inputEl.disabled = true;
+    inputEl.placeholder = `Đã đạt giới hạn 10 tin nhắn/24h (Mở lại sau ${waitText})`;
+    sendBtn.disabled = true;
+  } else {
+    inputEl.disabled = false;
+    inputEl.placeholder = "Hỏi về tắc đường, giờ cao điểm, lộ trình...";
+    sendBtn.disabled = false;
+  }
+}
 
 let fabEl = null;
 let windowEl = null;
@@ -210,7 +319,8 @@ function setChatOpen(open) {
     windowEl.classList.remove("hidden");
     positionWindowNearFab();
     scrollToBottom();
-    if (window.innerWidth > 640 && inputEl) {
+    updateChatInputState();
+    if (window.innerWidth > 640 && inputEl && !inputEl.disabled) {
       setTimeout(() => inputEl.focus(), 100);
     }
   } else {
@@ -291,6 +401,20 @@ async function sendUserMessage(text) {
   const clean = (text || "").trim();
   if (!clean) return;
 
+  if (isChatQuotaExceeded()) {
+    updateChatInputState();
+    const waitMs = getTimeUntilNextChatSlot();
+    const waitText = formatRemainingTime(waitMs);
+    const errorMsg = {
+      role: "model",
+      content: `⚠️ Tài khoản Standard chỉ được gửi tối đa ${CHAT_DAILY_LIMIT} tin nhắn trong vòng 24 giờ (Lượt tiếp theo sẽ mở lại sau <strong>${waitText}</strong>).<br/>Nâng cấp lên Premium để trò chuyện không giới hạn.<br/><a href="/premium" data-link style="color:#d97706;font-weight:700;">Nâng cấp Premium →</a>`,
+      timestamp: new Date().toISOString(),
+    };
+    messagesContainer.appendChild(createMessageBubble(errorMsg));
+    scrollToBottom();
+    return;
+  }
+
   if (inputEl) inputEl.value = "";
   if (sendBtn) sendBtn.disabled = true;
 
@@ -310,6 +434,10 @@ async function sendUserMessage(text) {
   try {
     const botResponse = await processChatMessage(clean);
     hideTypingIndicator();
+
+    if (!isPremium()) {
+      incrementDailyChatUsage();
+    }
 
     history.push(botResponse);
     saveMessageHistory(history);
@@ -331,8 +459,8 @@ async function sendUserMessage(text) {
     messagesContainer.appendChild(createMessageBubble(errorMsg));
     scrollToBottom();
   } finally {
-    if (sendBtn) sendBtn.disabled = false;
-    if (inputEl && window.innerWidth > 640) inputEl.focus();
+    updateChatInputState();
+    if (inputEl && window.innerWidth > 640 && !inputEl.disabled) inputEl.focus();
   }
 }
 
@@ -511,6 +639,8 @@ export function syncChatbotVisibility() {
     if (!isChatInitialized) {
       createChatbotWidget();
       isChatInitialized = true;
+    } else {
+      updateChatInputState();
     }
   } else if (isChatInitialized) {
     // Đăng xuất: gỡ bỏ widget và đóng trạng thái mở
@@ -650,4 +780,6 @@ function createChatbotWidget() {
 
   // Kích hoạt cơ chế kéo thả
   initDraggableFab();
+
+  updateChatInputState();
 }
