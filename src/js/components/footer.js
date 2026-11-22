@@ -1,10 +1,13 @@
 // File: src/js/components/footer.js
+import { isLoggedIn } from "../api.js";
 
 /**
  * Render footer dùng chung cho các trang (phong cách phi biểu tượng)
  * @returns {string} HTML string
  */
 export function renderFooter() {
+  const logged = isLoggedIn();
+  const hide = logged ? "" : "hidden";
   return `
     <footer class="site-footer">
       <div class="footer-content">
@@ -14,10 +17,10 @@ export function renderFooter() {
         </div>
 
         <div class="footer-links">
-          <a href="/" data-link>Trang chủ</a>
-          <a href="/#forecast" data-link>Dự báo tuyến</a>
+          <a href="/" data-link ${hide}>Trang chủ</a>
+          <a href="/#forecast" data-link ${hide}>Dự báo tuyến</a>
           <a href="/map" data-link>Bản đồ trực tiếp</a>
-          <a href="/compare" data-link>So sánh tuyến</a>
+          <a href="/compare" data-link ${hide}>So sánh tuyến</a>
           <a href="/login" data-link>Cổng thông tin</a>
         </div>
 

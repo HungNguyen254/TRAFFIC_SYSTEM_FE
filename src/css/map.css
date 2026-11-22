@@ -535,26 +535,25 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  background: #ffffff;
-  color: #e11d48;
-  border: 1px solid var(--border);
+  background: var(--primary);
+  color: #ffffff;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
   transition: all var(--trans-fast);
 }
 
-
-
 .favorite-square-btn:hover {
-  border-color: #e11d48;
-  background: #fff1f2;
+  border-color: transparent;
+  background: var(--primary-hover);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .favorite-square-btn[aria-pressed="true"] {
-  background: #e11d48;
-  border-color: #e11d48;
+  background: var(--primary-hover);
+  border-color: transparent;
 }
 
 .favorite-square-btn[aria-pressed="true"] svg {

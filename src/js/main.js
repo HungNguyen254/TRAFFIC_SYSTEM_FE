@@ -23,7 +23,7 @@ const routes = {
   },
   "/map": {
     page: mapPage,
-    meta: { requiresAuth: true, title: "Bản đồ giao thông" },
+    meta: { public: true, title: "Bản đồ giao thông" },
   },
   "/compare": {
     page: comparePage,

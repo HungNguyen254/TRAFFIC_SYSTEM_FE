@@ -146,6 +146,12 @@
 [data-theme="dark"] .admin-table tr:hover td {
   background: var(--surface-subtle);
 }
+
+[data-theme="dark"] {
+  --status-pill-bg: rgba(16, 185, 129, 0.12);
+  --status-pill-border: rgba(16, 185, 129, 0.35);
+  --status-pill-text: #34d399;
+}
 [data-theme="dark"] .section-gray > .hotspot-status {
   background: var(--surface);
   border-color: var(--border);
@@ -1717,12 +1723,12 @@ button.btn:disabled {
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
+  background: var(--status-pill-bg, #ecfdf5);
+  border: 1px solid var(--status-pill-border, #a7f3d0);
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 800;
-  color: #047857;
+  color: var(--status-pill-text, #047857);
   letter-spacing: 0.04em;
 }
 
@@ -1903,12 +1909,16 @@ button.btn:disabled {
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--surface);
   color: var(--primary);
   font: inherit;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.admin-row-action:hover:not(:disabled) {
+  background: var(--surface-hover);
 }
 
 .admin-row-delete {
@@ -1918,6 +1928,77 @@ button.btn:disabled {
 .admin-row-action:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+.admin-row-editing {
+  background: var(--surface-subtle, #f1f5f9);
+}
+
+.admin-inline-input {
+  width: 100%;
+  min-width: 90px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.admin-inline-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.admin-inline-speed {
+  min-width: 70px;
+  max-width: 90px;
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.admin-pagination-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-pagination-btn:hover:not(:disabled):not(.current) {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-pagination-btn.current {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  cursor: default;
+}
+
+.admin-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-pagination-info {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .admin-table-container {

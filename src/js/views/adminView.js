@@ -96,6 +96,7 @@ export function renderAdminView() {
               </tbody>
             </table>
           </div>
+          <nav class="admin-pagination" id="admin-user-pagination" aria-label="Phân trang người dùng" hidden></nav>
         </section>
 
         <section class="admin-card admin-road-section" aria-labelledby="admin-road-title">
@@ -186,6 +187,7 @@ export function renderAdminView() {
               </tbody>
             </table>
           </div>
+          <nav class="admin-pagination" id="admin-road-pagination" aria-label="Phân trang đoạn đường" hidden></nav>
           <p class="admin-feedback" id="admin-road-list-status" role="status" aria-live="polite"></p>
         </section>
 

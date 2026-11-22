@@ -1707,6 +1707,10 @@ function initMapPage() {
 
   function openFavoritesPopup() {
     if (!favoritesOverlay) return;
+    if (!isLoggedIn()) {
+      favoritesToggleBtn?.setAttribute("hidden", "");
+      return;
+    }
     favoritesOverlay.hidden = false;
     renderFavoritePlaces();
   }
@@ -1715,8 +1719,10 @@ function initMapPage() {
     if (favoritesOverlay) favoritesOverlay.hidden = true;
   }
 
-  if (favoritesToggleBtn)
+  if (favoritesToggleBtn) {
+    favoritesToggleBtn.hidden = !isLoggedIn();
     favoritesToggleBtn.addEventListener("click", openFavoritesPopup);
+  }
   if (favoritesCloseBtn)
     favoritesCloseBtn.addEventListener("click", closeFavoritesPopup);
   if (favoritesOverlay) {
@@ -1726,6 +1732,7 @@ function initMapPage() {
   }
 
   if (favoriteSaveBtn) {
+    favoriteSaveBtn.hidden = !isLoggedIn();
     favoriteSaveBtn.addEventListener("click", async () => {
       const query = roadQueryFavInput?.value.trim();
       if (!query) {

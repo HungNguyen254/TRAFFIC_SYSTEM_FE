@@ -269,10 +269,10 @@ export function renderHeader(currentPath = "/") {
 
       <!-- Menu Điều hướng -->
       <nav class="menu" id="site-menu" aria-label="Điều hướng chính">
-        <a href="/" data-link ${normPath === "/" ? 'aria-current="page"' : ""}>Trang chủ</a>
-        <a href="/#forecast" data-link>Dự báo</a>
+        <a href="/" data-link ${normPath === "/" ? 'aria-current="page"' : ""} ${logged ? "" : "hidden"}>Trang chủ</a>
+        <a href="/#forecast" data-link ${logged ? "" : "hidden"}>Dự báo</a>
         <a href="/map" data-link ${normPath === "/map" ? 'aria-current="page"' : ""}>Bản đồ</a>
-        <a href="/compare" data-link ${normPath === "/compare" ? 'aria-current="page"' : ""}>So sánh tuyến</a>
+        <a href="/compare" data-link ${normPath === "/compare" ? 'aria-current="page"' : ""} ${logged ? "" : "hidden"}>So sánh tuyến</a>
         ${upgradeBtn}
         <span class="nav-auth-slot" id="nav-auth-slot">
           ${renderAuthControl()}
@@ -449,11 +449,19 @@ export function updateHeaderAuth() {
   const authSlot = document.getElementById("nav-auth-slot");
   const adminLink = document.getElementById("nav-admin");
   const admin = isAdmin();
+  const logged = isLoggedIn();
 
   if (authSlot) authSlot.innerHTML = renderAuthControl();
   if (adminLink) {
     adminLink.hidden = !admin;
   }
+
+  // Đồng bộ ẩn/hiện các menu chỉ dành cho người đã đăng nhập
+  document.querySelectorAll("#site-menu a[data-link]").forEach((link) => {
+    const href = link.getAttribute("href") || "";
+    if (href === "/map" || href.startsWith("/login")) return;
+    link.hidden = !logged;
+  });
 
   syncAccountProfile();
   syncAccountAvatar();

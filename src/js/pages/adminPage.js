@@ -66,12 +66,18 @@ export const adminPage = {
     const userResetButton = document.getElementById("admin-user-reset");
     const userStatus = document.getElementById("admin-user-status");
     const userRows = document.getElementById("admin-user-rows");
+    const userPagination = document.getElementById("admin-user-pagination");
+    const roadPagination = document.getElementById("admin-road-pagination");
 
     let roads = [];
     let districts = [];
     let users = [];
+    const PAGE_SIZE = 8;
+    let userPage = 1;
+    let roadPage = 1;
     let editingUserId = null;
     let editingEdgeId = null;
+    let inlineEditingEdgeId = null;
     let coordinates = [];
     let drawingPoints = [];
     let drawing = false;
@@ -90,10 +96,70 @@ export const adminPage = {
       element.classList.toggle("error", isError);
     }
 
+    function renderPagination(nav, totalItems, currentPage, onPageChange) {
+      if (!nav) return;
+      nav.replaceChildren();
+      const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+      if (totalPages <= 1) {
+        nav.hidden = true;
+        return;
+      }
+      nav.hidden = false;
+
+      const createButton = (label, page, disabled = false, isCurrent = false) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "admin-pagination-btn";
+        button.textContent = label;
+        button.disabled = disabled;
+        if (isCurrent) button.classList.add("current");
+        button.addEventListener("click", () => onPageChange(page));
+        return button;
+      };
+
+      nav.append(createButton("‹ Trước", currentPage - 1, currentPage <= 1));
+
+      const windowSize = 5;
+      let start = Math.max(1, currentPage - Math.floor(windowSize / 2));
+      const end = Math.min(totalPages, start + windowSize - 1);
+      start = Math.max(1, end - windowSize + 1);
+      for (let page = start; page <= end; page += 1) {
+        nav.append(createButton(String(page), page, false, page === currentPage));
+      }
+
+      nav.append(createButton("Sau ›", currentPage + 1, currentPage >= totalPages));
+
+      const info = document.createElement("span");
+      info.className = "admin-pagination-info";
+      info.textContent = `Trang ${currentPage}/${totalPages} · ${totalItems} mục`;
+      nav.append(info);
+    }
+
+    function changeUserPage(page) {
+      userPage = page;
+      editingUserId = null;
+      renderUserRows();
+    }
+
+    function changeRoadPage(page) {
+      roadPage = page;
+      renderRoadRows();
+      renderRoadMap();
+    }
+
+    function clampPage(totalItems, page) {
+      return Math.min(Math.max(1, page), Math.max(1, Math.ceil(totalItems / PAGE_SIZE)));
+    }
+
     function renderUserRows() {
       if (!userRows) return;
       userRows.replaceChildren();
-      if (!users.length) {
+      renderPagination(userPagination, users.length, clampPage(users.length, userPage), changeUserPage);
+      const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+      if (userPage > totalPages) userPage = totalPages;
+      const startIndex = (userPage - 1) * PAGE_SIZE;
+      const pageUsers = users.slice(startIndex, startIndex + PAGE_SIZE);
+      if (!pageUsers.length) {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
         cell.colSpan = 5;
@@ -104,7 +170,7 @@ export const adminPage = {
         return;
       }
 
-      users.forEach((user) => {
+      pageUsers.forEach((user) => {
         const row = document.createElement("tr");
         const editing = editingUserId === user.user_id;
         const nameCell = document.createElement("td");
@@ -187,7 +253,7 @@ export const adminPage = {
       });
     }
 
-    async function loadUsers(query = "") {
+    async function loadUsers(query = "", resetPage = false) {
       try {
         const params = new URLSearchParams();
         if (query.trim()) params.set("query", query.trim());
@@ -196,6 +262,7 @@ export const adminPage = {
         if (!adminPageActive) return;
         users = Array.isArray(data.users) ? data.users : [];
         editingUserId = null;
+        if (resetPage) userPage = 1;
         renderUserRows();
         setMessage(
           userStatus,
@@ -251,12 +318,12 @@ export const adminPage = {
 
     userSearchForm?.addEventListener("submit", (event) => {
       event.preventDefault();
-      loadUsers(userSearchInput?.value || "");
+    loadUsers(userSearchInput?.value || "", true);
     });
 
     userResetButton?.addEventListener("click", () => {
-      if (userSearchInput) userSearchInput.value = "";
-      loadUsers("");
+    if (userSearchInput) userSearchInput.value = "";
+    loadUsers("", true);
     });
 
     function updateDrawingControls() {
@@ -457,7 +524,12 @@ export const adminPage = {
     function renderRoadRows() {
       if (!roadRows) return;
       roadRows.replaceChildren();
-      if (!roads.length) {
+      renderPagination(roadPagination, roads.length, clampPage(roads.length, roadPage), changeRoadPage);
+      const totalPages = Math.max(1, Math.ceil(roads.length / PAGE_SIZE));
+      if (roadPage > totalPages) roadPage = totalPages;
+      const startIndex = (roadPage - 1) * PAGE_SIZE;
+      const pageRoads = roads.slice(startIndex, startIndex + PAGE_SIZE);
+      if (!pageRoads.length) {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
         cell.colSpan = 6;
@@ -468,8 +540,76 @@ export const adminPage = {
         return;
       }
 
-      roads.forEach((road) => {
+      pageRoads.forEach((road) => {
         const row = document.createElement("tr");
+        row.dataset.edgeId = road.edge_id;
+        const editingRow = inlineEditingEdgeId === road.edge_id;
+
+        if (editingRow) {
+          row.classList.add("admin-row-editing");
+          const codeCell = document.createElement("td");
+          const codeInput = document.createElement("input");
+          codeInput.className = "admin-inline-input";
+          codeInput.maxLength = 20;
+          codeInput.value = road.edge_code;
+          codeCell.append(codeInput);
+
+          const nameCell = document.createElement("td");
+          const nameInput = document.createElement("input");
+          nameInput.className = "admin-inline-input";
+          nameInput.maxLength = 100;
+          nameInput.value = road.street_name;
+          nameCell.append(nameInput);
+
+          const districtCell = document.createElement("td");
+          const districtInput = document.createElement("input");
+          districtInput.className = "admin-inline-input";
+          districtInput.setAttribute("list", "admin-road-district-options");
+          districtInput.maxLength = 50;
+          districtInput.value = road.district || "";
+          districtCell.append(districtInput);
+
+          const lengthCell = document.createElement("td");
+          lengthCell.textContent = formatRoadLength(road.length_km);
+
+          const speedCell = document.createElement("td");
+          const speedInput = document.createElement("input");
+          speedInput.className = "admin-inline-input admin-inline-speed";
+          speedInput.type = "number";
+          speedInput.min = "1";
+          speedInput.max = "200";
+          speedInput.value = String(road.max_speed_limit);
+          speedCell.append(speedInput);
+
+          const actions = document.createElement("td");
+          actions.className = "admin-road-actions";
+          const saveButton = document.createElement("button");
+          saveButton.type = "button";
+          saveButton.className = "admin-row-action";
+          saveButton.textContent = "Lưu";
+          saveButton.addEventListener("click", () => {
+            saveRoadInline(road, {
+              edge_code: codeInput.value.trim(),
+              street_name: nameInput.value.trim(),
+              district: districtInput.value.trim(),
+              max_speed_limit: Number(speedInput.value),
+            });
+          });
+          const cancelButton = document.createElement("button");
+          cancelButton.type = "button";
+          cancelButton.className = "admin-row-action";
+          cancelButton.textContent = "Hủy";
+          cancelButton.addEventListener("click", () => {
+            inlineEditingEdgeId = null;
+            renderRoadRows();
+          });
+          actions.append(saveButton, cancelButton);
+
+          row.append(codeCell, nameCell, districtCell, lengthCell, speedCell, actions);
+          roadRows.append(row);
+          return;
+        }
+
         [
           road.edge_code,
           road.street_name,
@@ -487,18 +627,60 @@ export const adminPage = {
         const editButton = document.createElement("button");
         editButton.type = "button";
         editButton.className = "admin-row-action";
-        editButton.textContent = "Sửa";
-        editButton.addEventListener("click", () => beginEditingRoad(road));
+        editButton.textContent = "Sửa ngay";
+        editButton.addEventListener("click", () => {
+          inlineEditingEdgeId = road.edge_id;
+          renderRoadRows();
+        });
+
+        const mapButton = document.createElement("button");
+        mapButton.type = "button";
+        mapButton.className = "admin-row-action";
+        mapButton.textContent = "Sửa tuyến";
+        mapButton.addEventListener("click", () => beginEditingRoad(road));
 
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
         deleteButton.className = "admin-row-action admin-row-delete";
         deleteButton.textContent = "Xóa";
         deleteButton.addEventListener("click", () => deleteRoad(road));
-        actions.append(editButton, deleteButton);
+        actions.append(editButton, mapButton, deleteButton);
         row.append(actions);
         roadRows.append(row);
       });
+    }
+
+    async function saveRoadInline(road, payload) {
+      if (!payload.edge_code || !payload.street_name || !payload.district) {
+        setMessage(roadListStatus, "Mã, tên đường và khu vực không được để trống.", true);
+        return;
+      }
+      if (!Number.isFinite(payload.max_speed_limit) || payload.max_speed_limit < 1 || payload.max_speed_limit > 200) {
+        setMessage(roadListStatus, "Tốc độ tối đa phải trong khoảng 1–200 km/h.", true);
+        return;
+      }
+      try {
+        await request(`/admin/roads/${encodeURIComponent(road.edge_id)}`, {
+          method: "PUT",
+          body: {
+            edge_code: payload.edge_code,
+            street_name: payload.street_name,
+            district: payload.district,
+            max_speed_limit: payload.max_speed_limit,
+            coordinates: road.coordinates.map(({ lat, lng }) => ({ lat, lng })),
+          },
+          auth: true,
+        });
+        setMessage(roadListStatus, `Đã cập nhật đoạn đường ${payload.edge_code}.`);
+        inlineEditingEdgeId = null;
+        await loadRoads();
+      } catch (error) {
+        setMessage(
+          roadListStatus,
+          error instanceof Error ? error.message : "Không thể cập nhật đoạn đường.",
+          true,
+        );
+      }
     }
 
     function renderDistrictOptions() {
@@ -518,6 +700,8 @@ export const adminPage = {
         roads = Array.isArray(data.roads) ? data.roads : [];
         districts = Array.isArray(data.districts) ? data.districts : [];
         renderDistrictOptions();
+        roadPage = clampPage(roads.length, roadPage);
+        inlineEditingEdgeId = null;
         renderRoadRows();
         renderRoadMap();
         setMessage(roadListStatus, "");

@@ -170,6 +170,7 @@ export const comparePage = {
     departureInput.max = toLocalDateTimeValue(
       new Date(now.getTime() + 24 * 60 * 60 * 1000),
     );
+    const nodeNamesById = new Map();
 
     function setStatus(message, isError = false) {
       statusElement.textContent = message;
@@ -186,6 +187,7 @@ export const comparePage = {
           [edge.from, edge.to].forEach((node) => {
             if (node?.node_id && node.node_name) {
               nodesById.set(node.node_id, node);
+              nodeNamesById.set(node.node_id, node.node_name);
             }
           });
         });
@@ -293,10 +295,9 @@ export const comparePage = {
         const fastest = alternatives.reduce((best, item) =>
           item.predictedDuration < best.predictedDuration ? item : best,
         );
-        const originName =
-          originSelect.options[originSelect.selectedIndex]?.textContent || "điểm đi";
+        const originName = nodeNamesById.get(originSelect.value) || "điểm đi";
         const destinationName =
-          destinationSelect.options[destinationSelect.selectedIndex]?.textContent || "điểm đến";
+          nodeNamesById.get(destinationSelect.value) || "điểm đến";
         const summary = document.createElement("article");
         summary.className = "compare-winner";
         const label = document.createElement("span");
