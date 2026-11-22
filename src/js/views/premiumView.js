@@ -34,7 +34,7 @@ export function renderPremiumView(currentPlan = "standard") {
           </div>
           <ul class="pricing-features">
             <li class="disabled">✗ Dự báo theo khoảng thời gian (Bản đồ)</li>
-            <li class="disabled">✗ Dự báo thời tiết đoạn đường</li>
+            <li class="disabled">✗ Dự báo đoạn đường theo thời tiết</li>
             <li class="disabled">✗ So sánh 2 tuyến đường</li>
             <li>✓ Xem bản đồ giao thông thời gian thực</li>
             <li>✓ Chatbot AI giới hạn <strong>10 lần/ngày</strong></li>
@@ -58,7 +58,7 @@ export function renderPremiumView(currentPlan = "standard") {
           </div>
           <ul class="pricing-features">
             <li>✓ Dự báo theo khoảng thời gian (Bản đồ)</li>
-            <li>✓ Dự báo thời tiết đoạn đường</li>
+            <li>✓ Dự báo đoạn đường theo thời tiết</li>
             <li>✓ So sánh 2 tuyến đường</li>
             <li>✓ Bản đồ giao thông thời gian thực</li>
             <li>✓ Chatbot AI <strong>không giới hạn</strong></li>
