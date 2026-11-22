@@ -14,6 +14,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap"
     rel="stylesheet" />
 
+  <!-- Anti-FOUC: áp theme đã lưu TRƯỚC khi CSS render (tránh chớp trắng khi reload) -->
+  <script>
+    (function(){try{var p=localStorage.getItem("traffic_theme")||"system";var d=p==="dark"||(p!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var e=document.documentElement;e.setAttribute("data-theme",d?"dark":"light");e.style.colorScheme=d?"dark":"light";}catch(e){}})();
+  </script>
+
   <!-- Application CSS -->
   <link rel="stylesheet" href="/src/css/main.css" />
   <link rel="stylesheet" href="/src/css/map.css" />

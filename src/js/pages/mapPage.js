@@ -18,6 +18,7 @@ import {
   fetchMapForecast,
   getUser,
   isLoggedIn,
+  isPremium,
   parseSpeedKmh,
   request,
   CONGESTION_LEVELS,
@@ -1217,7 +1218,15 @@ function initMapPage() {
     }
   });
   trafficTimeSlider?.addEventListener("change", () => {
-    loadTrafficTime(getTrafficMode(Number(trafficTimeSlider.value)));
+    // Thanh trượt khung giờ (dự báo theo khoảng thời gian): chỉ dành cho Premium
+    const nextIndex = Number(trafficTimeSlider.value);
+    if (!isPremium() && nextIndex !== 0) {
+      setTrafficTimeStatus("Dự báo theo khung giờ chỉ dành cho tài khoản Premium. Đang chuyển đến trang nâng cấp...", true);
+      updateTrafficSlider(0); // quay về "Hiện tại"
+      setTimeout(() => { window.location.href = "/premium"; }, 1200);
+      return;
+    }
+    loadTrafficTime(getTrafficMode(nextIndex));
   });
 
   function moveTrafficSlider(direction) {
@@ -1227,6 +1236,12 @@ function initMapPage() {
       Math.min(24, Number(trafficTimeSlider.value) + direction),
     );
     if (nextIndex === Number(trafficTimeSlider.value)) return;
+    // Giới hạn Premium: Standard chỉ xem được "Hiện tại" (index 0)
+    if (!isPremium() && direction > 0) {
+      setTrafficTimeStatus("Dự báo theo khung giờ chỉ dành cho tài khoản Premium. Đang chuyển đến trang nâng cấp...", true);
+      setTimeout(() => { window.location.href = "/premium"; }, 1200);
+      return;
+    }
     trafficTimeSlider.value = String(nextIndex);
     updateTrafficSlider(nextIndex);
     loadTrafficTime(getTrafficMode(nextIndex));
@@ -1236,6 +1251,12 @@ function initMapPage() {
   trafficTimeNext?.addEventListener("click", () => moveTrafficSlider(1));
   trafficForecastButtons.forEach((button) => {
     button.addEventListener("click", () => {
+      // Tính năng dự báo theo khoảng thời gian: chỉ dành cho Premium
+      if (!isPremium()) {
+        setTrafficTimeStatus("Dự báo theo khoảng thời gian chỉ dành cho tài khoản Premium. Đang chuyển đến trang nâng cấp...", true);
+        setTimeout(() => { window.location.href = "/premium"; }, 1200);
+        return;
+      }
       const minutes = Number(button.dataset.forecastMinutes);
       if (minutes !== 30 && minutes !== 60) {
         setTrafficTimeStatus("Mốc dự báo không hợp lệ.", true);

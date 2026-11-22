@@ -3,7 +3,12 @@
 
 import { CONGESTION_LEVELS, NO_DATA_COLOR } from "./constants/traffic.js";
 
-const ENV = (typeof import.meta !== "undefined" && import.meta.env) ? import.meta.env : (typeof process !== "undefined" ? process.env : {});
+const ENV =
+  typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env
+    : typeof process !== "undefined"
+      ? process.env
+      : {};
 
 function requireEnv(name) {
   const value = ENV[name];
@@ -51,9 +56,64 @@ export function isAdmin() {
   return getUser()?.role === "admin";
 }
 
+/** Gói người dùng: "standard" hoặc "premium" */
+export function getPlan() {
+  return getUser()?.plan || "standard";
+}
+
+export function isPremium() {
+  return getPlan() === "premium";
+}
+
+/** Cập nhật plan trong localStorage sau khi nâng cấp */
+export function setPlan(plan) {
+  const user = getUser();
+  if (user) {
+    user.plan = plan;
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+}
+
+/**
+ * Gọi API tự động nâng cấp lên Premium (demo, chưa cần thanh toán)
+ * @returns {Promise<object>} UpgradePlanResponse
+ */
+export async function upgradeToPremium() {
+  const data = await request("/auth/upgrade-plan", {
+    method: "POST",
+    auth: true,
+  });
+  setPlan(data.plan);
+  return data;
+}
+
+/**
+ * Hủy gói Premium, quay về Standard
+ * @returns {Promise<object>} UpgradePlanResponse
+ */
+export async function cancelPremium() {
+  const data = await request("/auth/cancel-premium", {
+    method: "POST",
+    auth: true,
+  });
+  setPlan(data.plan);
+  return data;
+}
+
+/** Đồng bộ plan mới nhất từ server (gọi khi load app) */
+export async function refreshPlan() {
+  if (!isLoggedIn()) return;
+  try {
+    const data = await request("/auth/me", { auth: true });
+    setPlan(data.plan);
+  } catch {
+    /* bỏ qua */
+  }
+}
+
 /**
  * Trích xuất vận tốc dạng số km/h an toàn từ chuỗi hoặc số
- * @param {string|number} value 
+ * @param {string|number} value
  * @returns {number|null}
  */
 export function parseSpeedKmh(value) {
@@ -67,15 +127,16 @@ export function parseSpeedKmh(value) {
 
 /**
  * Tính mức độ ùn tắc (1..4) tương ứng theo dải vận tốc chuẩn
- * @param {number|null} speedKmh 
+ * @param {number|null} speedKmh
  * @returns {number|null}
  */
 export function trafficLevelFromSpeed(speedKmh) {
-  if (speedKmh === null || !Number.isFinite(speedKmh) || speedKmh <= 0) return null;
+  if (speedKmh === null || !Number.isFinite(speedKmh) || speedKmh <= 0)
+    return null;
   if (speedKmh >= 35) return 1; // Thông thoáng
   if (speedKmh >= 25) return 2; // Di chuyển chậm
   if (speedKmh >= 15) return 3; // Ùn tắc nghiêm trọng
-  return 4;                     // Kẹt xe hoàn toàn
+  return 4; // Kẹt xe hoàn toàn
 }
 
 function normalizeEdgeGeometry(geometryValue) {
@@ -85,7 +146,10 @@ function normalizeEdgeGeometry(geometryValue) {
       typeof geometryValue === "string"
         ? JSON.parse(geometryValue)
         : geometryValue;
-    if (geometry?.type !== "LineString" || !Array.isArray(geometry.coordinates)) {
+    if (
+      geometry?.type !== "LineString" ||
+      !Array.isArray(geometry.coordinates)
+    ) {
       return null;
     }
 
@@ -115,7 +179,7 @@ function normalizeEdgeGeometry(geometryValue) {
 
 /**
  * Chuẩn hóa danh sách edges từ API backend về cấu trúc đồng nhất
- * @param {any} raw 
+ * @param {any} raw
  * @returns {Array<object>}
  */
 export function normalizeEdges(raw) {
@@ -139,15 +203,15 @@ export function normalizeEdges(raw) {
     const rawFrom = e.from || e.from_node || {};
     const rawTo = e.to || e.to_node || {};
     const from =
-    nodesById[e.from_node_id] ||
-    nodesById[rawFrom.node_id] ||
-    nodesById[rawFrom.node_code] ||
-    rawFrom;
+      nodesById[e.from_node_id] ||
+      nodesById[rawFrom.node_id] ||
+      nodesById[rawFrom.node_code] ||
+      rawFrom;
     const to =
-    nodesById[e.to_node_id] ||
-    nodesById[rawTo.node_id] ||
-    nodesById[rawTo.node_code] ||
-    rawTo;
+      nodesById[e.to_node_id] ||
+      nodesById[rawTo.node_id] ||
+      nodesById[rawTo.node_code] ||
+      rawTo;
     const rec = e.latest_traffic || e.traffic_record || {};
     const speed =
       rec.speed ??
@@ -169,7 +233,9 @@ export function normalizeEdges(raw) {
       edge_id: String(e.edge_id || e.id || ""),
       edge_code: String(e.edge_code || e.id || ""),
       street_name: String(e.street_name || e.name || "Tuyến đường"),
-      corridor_name: String(e.corridor_name || e.street_name || e.name || "Trục đường"),
+      corridor_name: String(
+        e.corridor_name || e.street_name || e.name || "Trục đường",
+      ),
       max_speed_limit: Number(e.max_speed_limit) || 50,
       geometry: normalizeEdgeGeometry(e.geom),
       from: {
@@ -187,8 +253,11 @@ export function normalizeEdges(raw) {
         lng: Number(to.lng ?? to.longitude) || 0,
       },
       congestion_level: level,
-      color_code: level && CONGESTION_LEVELS[level] ? CONGESTION_LEVELS[level].color : NO_DATA_COLOR,
-      speed: speedKmh ? `${speedKmh} km/h` : (speed ? String(speed) : null),
+      color_code:
+        level && CONGESTION_LEVELS[level]
+          ? CONGESTION_LEVELS[level].color
+          : NO_DATA_COLOR,
+      speed: speedKmh ? `${speedKmh} km/h` : speed ? String(speed) : null,
       speed_num: speedKmh,
       length_km: Number(e.length_km) || 1,
       updated_at: e.updated_at || null,
@@ -241,12 +310,13 @@ export async function request(
 export async function fetchEdges(options = {}) {
   const params = new URLSearchParams();
   if (options.hour !== undefined) params.set("hour", options.hour);
-  if (options.day_of_week !== undefined) params.set("day_of_week", options.day_of_week);
+  if (options.day_of_week !== undefined)
+    params.set("day_of_week", options.day_of_week);
   if (options.district) params.set("district", options.district);
   if (options.bbox) params.set("bbox", options.bbox);
 
   const query = params.toString() ? `?${params.toString()}` : "";
-  const data = await request(`/edges${query}`);
+  const data = await request(`/edges${query}`, { auth: true });
   return normalizeEdges(data);
 }
 
@@ -258,10 +328,11 @@ export async function fetchEdgesStatus(options = {}) {
   if (options.bbox) params.set("bbox", options.bbox);
   if (options.district) params.set("district", options.district);
   if (options.hour !== undefined) params.set("hour", options.hour);
-  if (options.day_of_week !== undefined) params.set("day_of_week", options.day_of_week);
+  if (options.day_of_week !== undefined)
+    params.set("day_of_week", options.day_of_week);
 
   const query = params.toString() ? `?${params.toString()}` : "";
-  return request(`/edges/status${query}`);
+  return request(`/edges/status${query}`, { auth: true });
 }
 
 /**
@@ -276,7 +347,9 @@ export async function fetchForecast({
 }) {
   const body = {
     weather,
-    minutes_ahead: Array.isArray(minutes_ahead) ? minutes_ahead : [minutes_ahead],
+    minutes_ahead: Array.isArray(minutes_ahead)
+      ? minutes_ahead
+      : [minutes_ahead],
   };
   if (edge_id) body.edge_id = edge_id;
   if (street_name) body.street_name = street_name;
@@ -285,6 +358,7 @@ export async function fetchForecast({
   const data = await request("/predictions/forecast", {
     method: "POST",
     body,
+    auth: true,
   });
 
   const timeline = Array.isArray(data?.timeline)
@@ -317,6 +391,7 @@ export async function fetchMapForecast({ minutes_ahead, weather = "sunny" }) {
   const data = await request("/predictions/forecast/map", {
     method: "POST",
     body: { minutes_ahead, weather },
+    auth: true,
   });
 
   if (!Array.isArray(data?.edges)) {
@@ -330,13 +405,18 @@ export async function fetchRouteForecast({ base_time, weather, steps }) {
   return request("/predictions/forecast/route", {
     method: "POST",
     body: { base_time, weather, steps },
+    auth: true,
   });
 }
 
 /**
  * Tìm lộ trình qua Backend API
  */
-export async function fetchDirections({ origin_node_id, destination_node_id, weight_mode = "distance" }) {
+export async function fetchDirections({
+  origin_node_id,
+  destination_node_id,
+  weight_mode = "distance",
+}) {
   const params = new URLSearchParams({
     origin_node_id,
     destination_node_id,
