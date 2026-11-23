@@ -107,6 +107,17 @@ function createRouteCard(alternative, recommended, departureTime) {
     steps.append(item);
   });
 
+  if (alternative.route?.risk_warning) {
+    const warning = document.createElement("div");
+    warning.className = "compare-route-warning";
+    warning.style.color = "#dc2626";
+    warning.style.fontSize = "0.875rem";
+    warning.style.marginTop = "0.5rem";
+    warning.style.fontWeight = "600";
+    warning.textContent = `⚠️ ${alternative.route.risk_warning}`;
+    metrics.after(warning);
+  }
+
   card.append(header, metrics, steps);
   return card;
 }

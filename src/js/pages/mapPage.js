@@ -15,6 +15,7 @@ import {
 import {
   API_BASE_URL,
   fetchEdges,
+  fetchEdgeHistory,
   fetchMapForecast,
   getUser,
   isLoggedIn,
@@ -2334,10 +2335,11 @@ function initMapPage() {
         if (!edge.edge_id) {
           throw new Error("Thiếu mã đoạn đường để tải dữ liệu lịch sử.");
         }
-        const params = new URLSearchParams({ start, end });
-        const history = await request(
-          `/edges/${encodeURIComponent(edge.edge_id)}/history?${params}`,
-        );
+        const history = await fetchEdgeHistory(edge.edge_id, {
+          start,
+          end,
+          signal: abortSignal,
+        });
         if (!Array.isArray(history?.buckets)) {
           throw new Error("Dữ liệu lịch sử trả về không đúng định dạng.");
         }
