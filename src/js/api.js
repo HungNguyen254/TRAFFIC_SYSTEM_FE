@@ -26,26 +26,38 @@ export const API_HEALTH_URL = requireEnv("VITE_API_HEALTH_URL");
 const TOKEN_KEY = "traffic_token";
 const USER_KEY = "traffic_user";
 
+function getStorage() {
+  if (typeof localStorage !== "undefined") return localStorage;
+  if (typeof globalThis !== "undefined" && globalThis.localStorage) return globalThis.localStorage;
+  return null;
+}
+
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY) || "";
+  return getStorage()?.getItem(TOKEN_KEY) || "";
 }
 
 export function getUser() {
   try {
-    return JSON.parse(localStorage.getItem(USER_KEY) || "null");
+    return JSON.parse(getStorage()?.getItem(USER_KEY) || "null");
   } catch {
     return null;
   }
 }
 
 export function saveSession(token, user) {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  const storage = getStorage();
+  if (storage) {
+    storage.setItem(TOKEN_KEY, token);
+    storage.setItem(USER_KEY, JSON.stringify(user));
+  }
 }
 
 export function clearSession() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  const storage = getStorage();
+  if (storage) {
+    storage.removeItem(TOKEN_KEY);
+    storage.removeItem(USER_KEY);
+  }
 }
 
 export function isLoggedIn() {
@@ -236,12 +248,15 @@ export function normalizeEdges(raw) {
       corridor_name: String(
         e.corridor_name || e.street_name || e.name || "Trục đường",
       ),
+      from_node_id: String(from.node_id || from.id || e.from_node_id || ""),
+      to_node_id: String(to.node_id || to.id || e.to_node_id || ""),
       max_speed_limit: Number(e.max_speed_limit) || 50,
       geometry: normalizeEdgeGeometry(e.geom),
       from: {
         node_id: String(from.node_id || from.id || e.from_node_id || ""),
         node_code: String(from.node_code || from.id || ""),
         node_name: String(from.node_name || from.name || "Điểm nút"),
+        district: from.district || null,
         lat: Number(from.lat ?? from.latitude) || 0,
         lng: Number(from.lng ?? from.longitude) || 0,
       },
@@ -249,6 +264,7 @@ export function normalizeEdges(raw) {
         node_id: String(to.node_id || to.id || e.to_node_id || ""),
         node_code: String(to.node_code || to.id || ""),
         node_name: String(to.node_name || to.name || "Điểm nút"),
+        district: to.district || null,
         lat: Number(to.lat ?? to.latitude) || 0,
         lng: Number(to.lng ?? to.longitude) || 0,
       },
@@ -270,7 +286,7 @@ export function normalizeEdges(raw) {
  */
 export async function request(
   path,
-  { method = "GET", body, auth = false } = {},
+  { method = "GET", body, auth = false, signal } = {},
 ) {
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -281,6 +297,7 @@ export async function request(
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   let payload = null;
@@ -291,11 +308,23 @@ export async function request(
   }
 
   if (!res.ok) {
-    const message = payload?.message || payload?.detail || `HTTP ${res.status}`;
+    let message = payload?.message || payload?.detail;
+    // Bóc tách thông điệp chi tiết từ mảng lỗi validation Pydantic (HTTP 422) nếu có
+    if (Array.isArray(payload?.error) && payload.error.length > 0 && payload.error[0]?.msg) {
+      const detailMsg = payload.error[0].msg;
+      message = message ? `${message} (${detailMsg})` : detailMsg;
+    }
+    if (!message) message = `HTTP ${res.status}`;
     if (res.status === 401 && auth) clearSession();
     throw new Error(message);
   }
-  return payload?.data ?? payload;
+
+  // Chuẩn hóa bóc tách envelope StandardResponse[T]:
+  // Nếu payload có thuộc tính "data", trả về payload.data (kể cả khi null)
+  if (payload && typeof payload === "object" && "data" in payload && payload.data !== undefined) {
+    return payload.data;
+  }
+  return payload;
 }
 
 /**
@@ -304,7 +333,13 @@ export async function request(
  * @param {number} [options.hour]
  * @param {number} [options.day_of_week]
  * @param {string} [options.district]
+ * @param {string} [options.area]
  * @param {string} [options.bbox]
+ * @param {number} [options.min_lat]
+ * @param {number} [options.min_lng]
+ * @param {number} [options.max_lat]
+ * @param {number} [options.max_lng]
+ * @param {AbortSignal} [options.signal]
  * @returns {Promise<Array<object>>}
  */
 export async function fetchEdges(options = {}) {
@@ -313,11 +348,49 @@ export async function fetchEdges(options = {}) {
   if (options.day_of_week !== undefined)
     params.set("day_of_week", options.day_of_week);
   if (options.district) params.set("district", options.district);
+  if (options.area) params.set("area", options.area);
   if (options.bbox) params.set("bbox", options.bbox);
+  if (options.min_lat !== undefined) params.set("min_lat", options.min_lat);
+  if (options.min_lng !== undefined) params.set("min_lng", options.min_lng);
+  if (options.max_lat !== undefined) params.set("max_lat", options.max_lat);
+  if (options.max_lng !== undefined) params.set("max_lng", options.max_lng);
 
   const query = params.toString() ? `?${params.toString()}` : "";
-  const data = await request(`/edges${query}`, { auth: true });
+  const data = await request(`/edges${query}`, { auth: true, signal: options.signal });
   return normalizeEdges(data);
+}
+
+/**
+ * Lấy chi tiết một đoạn đường từ Backend
+ * @param {string} edgeId
+ * @param {object} [options]
+ * @returns {Promise<object>}
+ */
+export async function fetchEdgeById(edgeId, options = {}) {
+  return request(`/edges/${encodeURIComponent(edgeId)}`, {
+    auth: true,
+    signal: options.signal,
+  });
+}
+
+/**
+ * Lấy lịch sử tình trạng một đoạn đường theo giờ
+ * @param {string} edgeId
+ * @param {object} [options]
+ * @param {string} [options.start]
+ * @param {string} [options.end]
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<object>} EdgeHourlyHistoryResponse
+ */
+export async function fetchEdgeHistory(edgeId, { start, end, signal } = {}) {
+  const params = new URLSearchParams();
+  if (start) params.set("start", start);
+  if (end) params.set("end", end);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request(`/edges/${encodeURIComponent(edgeId)}/history${query}`, {
+    auth: true,
+    signal,
+  });
 }
 
 /**
@@ -327,12 +400,17 @@ export async function fetchEdgesStatus(options = {}) {
   const params = new URLSearchParams();
   if (options.bbox) params.set("bbox", options.bbox);
   if (options.district) params.set("district", options.district);
+  if (options.area) params.set("area", options.area);
   if (options.hour !== undefined) params.set("hour", options.hour);
   if (options.day_of_week !== undefined)
     params.set("day_of_week", options.day_of_week);
+  if (options.min_lat !== undefined) params.set("min_lat", options.min_lat);
+  if (options.min_lng !== undefined) params.set("min_lng", options.min_lng);
+  if (options.max_lat !== undefined) params.set("max_lat", options.max_lat);
+  if (options.max_lng !== undefined) params.set("max_lng", options.max_lng);
 
   const query = params.toString() ? `?${params.toString()}` : "";
-  return request(`/edges/status${query}`, { auth: true });
+  return request(`/edges/status${query}`, { auth: true, signal: options.signal });
 }
 
 /**
@@ -344,6 +422,7 @@ export async function fetchForecast({
   weather = "sunny",
   minutes_ahead = [30, 60, 120],
   base_time,
+  signal,
 }) {
   const body = {
     weather,
@@ -359,6 +438,7 @@ export async function fetchForecast({
     method: "POST",
     body,
     auth: true,
+    signal,
   });
 
   const timeline = Array.isArray(data?.timeline)
@@ -387,11 +467,12 @@ export async function fetchForecast({
   };
 }
 
-export async function fetchMapForecast({ minutes_ahead, weather = "sunny" }) {
+export async function fetchMapForecast({ minutes_ahead, weather = "sunny", signal }) {
   const data = await request("/predictions/forecast/map", {
     method: "POST",
     body: { minutes_ahead, weather },
     auth: true,
+    signal,
   });
 
   if (!Array.isArray(data?.edges)) {
@@ -401,11 +482,12 @@ export async function fetchMapForecast({ minutes_ahead, weather = "sunny" }) {
   return data;
 }
 
-export async function fetchRouteForecast({ base_time, weather, steps }) {
+export async function fetchRouteForecast({ base_time, weather, steps, signal }) {
   return request("/predictions/forecast/route", {
     method: "POST",
     body: { base_time, weather, steps },
     auth: true,
+    signal,
   });
 }
 
@@ -416,13 +498,137 @@ export async function fetchDirections({
   origin_node_id,
   destination_node_id,
   weight_mode = "distance",
+  speed_source = "current",
+  signal,
 }) {
   const params = new URLSearchParams({
     origin_node_id,
     destination_node_id,
     weight_mode,
+    speed_source,
   });
-  return request(`/directions?${params.toString()}`);
+  return request(`/directions?${params.toString()}`, { signal });
+}
+
+/**
+ * Đề xuất 2-3 tuyến thay thế qua Backend API
+ */
+export async function fetchRouteAlternatives({
+  origin_node_id,
+  destination_node_id,
+  speed_source = "current",
+  signal,
+}) {
+  const params = new URLSearchParams({
+    origin_node_id,
+    destination_node_id,
+    speed_source,
+  });
+  return request(`/directions/alternatives?${params.toString()}`, { signal });
+}
+
+/**
+ * Tìm kiếm địa điểm qua Backend Geocoding Proxy (Nominatim)
+ */
+export async function searchGeocode({ q, limit = 5, viewbox, signal } = {}) {
+  const params = new URLSearchParams({
+    q: q || "",
+    limit: String(limit),
+  });
+  if (viewbox) params.set("viewbox", viewbox);
+  return request(`/geocode/search?${params.toString()}`, { signal });
+}
+
+/**
+ * Tra cứu ngược tọa độ ra địa điểm qua Backend Geocoding Proxy (Nominatim)
+ */
+export async function reverseGeocode({ lat, lon, zoom = 18, signal } = {}) {
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    zoom: String(zoom),
+  });
+  return request(`/geocode/reverse?${params.toString()}`, { signal });
+}
+
+/**
+ * Quản trị viên: Lấy danh sách tài khoản
+ */
+export async function fetchAdminUsers(query = "", { signal } = {}) {
+  const params = new URLSearchParams();
+  if (query.trim()) params.set("query", query.trim());
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request(`/admin/users${suffix}`, { auth: true, signal });
+}
+
+/**
+ * Quản trị viên: Cập nhật tài khoản
+ */
+export async function updateAdminUser(userId, payload) {
+  return request(`/admin/users/${encodeURIComponent(userId)}`, {
+    method: "PUT",
+    body: payload,
+    auth: true,
+  });
+}
+
+/**
+ * Quản trị viên: Xóa tài khoản
+ */
+export async function deleteAdminUser(userId) {
+  return request(`/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+/**
+ * Quản trị viên: Lấy danh sách đoạn đường
+ */
+export async function fetchAdminRoads({ signal } = {}) {
+  return request("/admin/roads", { auth: true, signal });
+}
+
+/**
+ * Quản trị viên: Tạo đoạn đường mới từ tuyến được vẽ
+ */
+export async function createAdminRoad(payload) {
+  return request("/admin/roads", {
+    method: "POST",
+    body: payload,
+    auth: true,
+  });
+}
+
+/**
+ * Quản trị viên: Cập nhật đoạn đường
+ */
+export async function updateAdminRoad(edgeId, payload) {
+  return request(`/admin/roads/${encodeURIComponent(edgeId)}`, {
+    method: "PUT",
+    body: payload,
+    auth: true,
+  });
+}
+
+/**
+ * Quản trị viên: Xóa đoạn đường
+ */
+export async function deleteAdminRoad(edgeId) {
+  return request(`/admin/roads/${encodeURIComponent(edgeId)}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+/**
+ * Quản trị viên: Kích hoạt huấn luyện lại mô hình AI dự báo
+ */
+export async function triggerRetrainModel() {
+  return request("/admin/retrain-model", {
+    method: "POST",
+    auth: true,
+  });
 }
 
 /**
