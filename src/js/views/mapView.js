@@ -458,7 +458,7 @@ export function renderMapView() {
           title="Đóng cửa sổ"
           aria-label="Đóng"
         >
-          Đóng
+          <span aria-hidden="true">&times;</span>
         </button>
         <div class="section-eyebrow">MỤC YÊU THÍCH CỦA TÔI</div>
         <h2 class="popup-title" id="favorites-title">Đường và địa điểm yêu thích</h2>
@@ -493,7 +493,7 @@ export function renderMapView() {
           title="Đóng cửa sổ"
           aria-label="Đóng"
         >
-          Đóng
+          <span aria-hidden="true">&times;</span>
         </button>
         <div class="section-eyebrow">CÁC TÌM KIẾM GẦN ĐÂY</div>
         <h2 class="popup-title" id="search-history-title">Lịch sử tìm kiếm</h2>
@@ -522,7 +522,7 @@ export function renderMapView() {
           title="Đóng cửa sổ"
           aria-label="Đóng"
         >
-          Đóng
+          <span aria-hidden="true">&times;</span>
         </button>
 
         <!-- PAGE 1: Road information -->

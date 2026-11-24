@@ -1709,6 +1709,7 @@ function initMapPage() {
     if (!favoritesOverlay) return;
     if (!isLoggedIn()) {
       favoritesToggleBtn?.setAttribute("hidden", "");
+      closeFavoritesPopup();
       return;
     }
     favoritesOverlay.hidden = false;
