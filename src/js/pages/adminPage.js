@@ -274,7 +274,7 @@ export const adminPage = {
 
           const cancelButton = document.createElement("button");
           cancelButton.type = "button";
-          cancelButton.className = "admin-row-action";
+          cancelButton.className = "admin-row-action admin-row-delete";
           cancelButton.textContent = "Hủy";
           cancelButton.addEventListener("click", () => {
             editingUserId = null;
@@ -649,7 +649,7 @@ export const adminPage = {
           });
           const cancelButton = document.createElement("button");
           cancelButton.type = "button";
-          cancelButton.className = "admin-row-action";
+          cancelButton.className = "admin-row-action admin-row-delete";
           cancelButton.textContent = "Hủy";
           cancelButton.addEventListener("click", () => {
             inlineEditingEdgeId = null;
@@ -679,8 +679,7 @@ export const adminPage = {
         const editButton = document.createElement("button");
         editButton.type = "button";
         editButton.className = "admin-row-action";
-        editButton.textContent = "Sửa ngay";
-        editButton.textContent = "Sửa ngay";
+        editButton.textContent = "Sửa";
         editButton.addEventListener("click", () => {
           inlineEditingEdgeId = road.edge_id;
           renderRoadRows();
