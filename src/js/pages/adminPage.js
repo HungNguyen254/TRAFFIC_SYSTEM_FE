@@ -439,7 +439,7 @@ export const adminPage = {
         )
           .bindTooltip(`${road.edge_code} · ${road.street_name}`)
           .addTo(roadLayer);
-        if (!road.has_geometry) {
+        if (!road.has_geometry || road.coordinates.length <= 2) {
           pendingGeometry.push(
             getRoadGeometry(road.coordinates).then((routedPoints) => {
               if (!adminPageActive || renderId !== roadRenderId) return;
@@ -806,7 +806,10 @@ export const adminPage = {
       editingEdgeId = road.edge_id;
       drawing = false;
       snapping = false;
-      geometryReady = Boolean(road.has_geometry);
+      // Geometry chỉ có 2 điểm là đường thẳng nối 2 nút, chưa được căn theo đường thực tế
+      const hasRoutedGeometry =
+        Boolean(road.has_geometry) && road.coordinates.length > 2;
+      geometryReady = hasRoutedGeometry;
       drawingPoints = [];
       coordinates = road.coordinates.map(({ lat, lng }) => ({ lat, lng }));
       if (roadCodeInput) roadCodeInput.value = road.edge_code;
@@ -825,7 +828,7 @@ export const adminPage = {
           { padding: [30, 30], maxZoom: 16 },
         );
       }
-      if (!road.has_geometry) {
+      if (!hasRoutedGeometry) {
         try {
           const routedPoints = await getRoadGeometry(road.coordinates);
           if (

@@ -1367,7 +1367,8 @@ function initMapPage() {
           try {
             const snappedList = await Promise.all(
               corridor.edges.map((e) =>
-                e.geometry?.length >= 2
+                // Geometry chỉ có 2 điểm là đường thẳng nối 2 nút -> vẫn căn lại theo OSRM
+                e.geometry?.length > 2
                   ? {
                       pts: e.geometry,
                       distance: polylineLength(e.geometry),
