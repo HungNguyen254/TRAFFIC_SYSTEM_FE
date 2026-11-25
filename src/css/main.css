@@ -502,7 +502,7 @@ code {
 }
 
 #nav-auth:hover {
-  background: #e2e8f0;
+  background: var(--surface-hover);
 }
 
 .nav-auth-slot {
@@ -768,6 +768,14 @@ code {
   background: #fdf2f8;
   color: #db2777;
   border: 1px solid #fbcfe8;
+}
+
+/* Đồng bộ màu hardcode theo theme tối */
+[data-theme="dark"] .nav-toggle:hover {
+  background: var(--surface-subtle);
+}
+[data-theme="dark"] #nav-auth:hover {
+  background: var(--surface-hover);
 }
 
 /* Nút Hamburger di động (Ẩn trên màn hình rộng) */
@@ -2447,20 +2455,22 @@ button.btn:disabled {
     top: 61px;
     left: 0;
     right: 0;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.15);
+    bottom: 0;
+    height: calc(100dvh - 61px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--surface);
+    color: var(--text);
+    border-top: 1px solid var(--border);
     flex-direction: column;
     align-items: stretch;
-    padding: 16px 20px 24px 20px;
-    gap: 8px;
-    transform: translateY(-100%);
+    padding: 14px 16px calc(24px + env(safe-area-inset-bottom, 0px)) 16px;
+    gap: 6px;
+    transform: translateY(-12px);
     opacity: 0;
     pointer-events: none;
     visibility: hidden;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, visibility 0.25s ease;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, visibility 0.22s ease;
     z-index: 999;
   }
 
@@ -2471,38 +2481,198 @@ button.btn:disabled {
     visibility: visible;
   }
 
-  .site-header .menu a {
-    padding: 12px 16px;
-    font-size: 15px;
-    min-height: 44px;
+  /* Các mục điều hướng dạng hàng lớn, dễ chạm */
+  /* ===== Thẻ tài khoản ở ĐẦU drawer (chỉ mobile, không đổi thứ tự desktop) ===== */
+  .site-header .menu .nav-auth-slot {
+    display: block;
+    width: 100%;
+    order: -1;
+  }
+
+  .site-header .menu .account-menu {
+    display: block;
+    width: 100%;
+    margin: 0;
+  }
+
+  /* Khi chưa đăng nhập: nút Đăng nhập thành nút lớn full-width */
+  .site-header .menu #nav-auth {
     display: flex;
+    width: 100%;
+    justify-content: center;
     align-items: center;
+    min-height: 48px;
+    margin: 4px 0 8px 0;
+    font-weight: 700;
     border-radius: var(--radius-md);
   }
 
-  #nav-auth {
-    margin-left: 0;
-    margin-top: 4px;
+  /* Card hồ sơ: luôn hiển thị ở đầu drawer, giống card desktop */
+  .site-header .menu .account-dropdown {
+    position: static;
+    width: 100%;
+    max-width: none;
+    top: auto;
+    right: auto;
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    box-shadow: none;
+    margin: 0 0 10px 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
   }
 
-  .nav-upgrade-btn {
-    margin: 4px 0;
-    text-align: center;
-    justify-content: center;
+  /* Cover + profile giữ nguyên như desktop */
+  .site-header .menu .account-profile-link {
+    margin-top: -35px;
+    padding: 0 18px 17px;
   }
 
-  .account-menu {
-    margin: 4px 0;
+  .site-header .menu .account-dropdown-section {
+    padding: 10px 18px;
   }
 
-  .site-header .menu .nav-auth-slot {
+  .site-header .menu .account-plan-row {
+    padding: 0;
+    margin: 0;
+  }
+
+  .site-header .menu .account-dropdown-link {
+    min-height: 34px;
+    font-size: 13px;
+  }
+
+  .site-header .menu .account-dropdown-footer {
+    display: none;
+  }
+
+  /* Hạ chatbot xuống dưới drawer khi menu mobile mở */
+  .site-header .menu.mobile-open ~ .chatbot-fab,
+  body:has(.menu.mobile-open) .chatbot-fab {
+    z-index: 900;
+  }
+
+  /* Ẩn nút avatar tròn nhỏ (card hồ sơ đã hiện sẵn ở đầu drawer) */
+  .site-header .menu .account-avatar-trigger {
+    display: none;
+  }
+
+  /* Nút Đăng xuất riêng ở CUỐI drawer */
+  .nav-mobile-logout {
+    display: none;
+  }
+
+  .site-header .menu .nav-mobile-logout {
     display: flex;
     width: 100%;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    margin: 12px 0 0 0;
+    padding: 13px 16px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--danger, #dc2626);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    order: 99;
   }
 
-  .account-dropdown {
-    top: calc(100% + 8px);
+  .site-header .menu .nav-mobile-logout:hover {
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.35);
+  }
+
+  [data-theme="dark"] .site-header .menu .nav-mobile-logout:hover {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.35);
+  }
+
+  .site-header .menu .nav-mobile-logout::before {
+    content: "";
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 17l5-5-5-5M15 12H3m9-7h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 17l5-5-5-5M15 12H3m9-7h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  /* ===== Nhóm link điều hướng ===== */
+  .site-header .menu {
+    gap: 4px;
+  }
+
+  .site-header .menu a[data-link] {
+    padding: 13px 16px;
+    font-size: 15px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: var(--radius-md);
+    color: var(--text);
+    background: transparent;
+    border: 1px solid transparent;
+    font-weight: 600;
+  }
+
+  .site-header .menu a[data-link][aria-current="page"] {
+    color: var(--primary);
+    background: var(--surface-subtle);
+    border-color: var(--border);
+    font-weight: 700;
+  }
+
+  .site-header .menu a[data-link]:hover {
+    color: var(--primary);
+    background: var(--surface-subtle);
+  }
+
+  .site-header .menu a[data-link]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .site-header .menu a[hidden] {
+    display: none;
+  }
+
+  /* Nút nâng cấp Premium: full-width, nổi bật ở cuối nhóm link */
+  .site-header .menu .nav-upgrade-btn {
+    display: flex;
+    margin: 10px 0 4px 0;
+    padding: 13px 16px !important;
+    min-height: 48px;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 15px;
+    border-radius: var(--radius-md);
+  }
+
+  /* Đồng bộ màu drawer với theme tối */
+  [data-theme="dark"] .site-header .menu {
+    background: var(--surface);
+    box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.5);
+  }
+  [data-theme="dark"] .site-header .menu a[data-link]:hover {
+    background: var(--surface-hover);
+  }
+  [data-theme="dark"] .site-header .menu a[data-link][aria-current="page"] {
+    background: var(--surface-subtle);
+    border-color: var(--border);
+  }
+  [data-theme="dark"] .site-header .menu .account-dropdown {
+    background: var(--surface-subtle);
   }
 
   .admin-grid {
@@ -2531,6 +2701,43 @@ button.btn:disabled {
     flex-direction: column;
     text-align: center;
     gap: 14px;
+  }
+}
+
+/* Header + Drawer gọn hơn trên màn hình nhỏ (<= 640px) */
+@media (max-width: 640px) {
+  .site-header {
+    padding: 10px 14px;
+  }
+
+  .site-header .menu {
+    top: 57px;
+    height: calc(100dvh - 57px);
+    padding: 12px 12px calc(20px + env(safe-area-inset-bottom, 0px)) 12px;
+  }
+
+  .logo-badge,
+  .site-header .plan-badge {
+    display: none;
+  }
+
+  .account-avatar-small {
+    width: 34px;
+    height: 34px;
+  }
+
+  .account-avatar-trigger {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Dropdown tài khoản mở chiếm trọn bề ngang trong drawer */
+  .site-header .menu .account-dropdown {
+    position: static;
+    width: 100%;
+    max-width: none;
+    transform: none;
+    box-shadow: none;
   }
 }
 
@@ -2761,6 +2968,11 @@ button.btn:disabled {
 .plan-badge.standard {
   background: #e2e8f0;
   color: #475569;
+}
+
+/* Nút Đăng xuất mobile-only: ẩn mặc định, chỉ hiện trong drawer mobile */
+.nav-mobile-logout {
+display: none;
 }
 .plan-badge.premium {
   background: linear-gradient(135deg, #f59e0b, #d97706);

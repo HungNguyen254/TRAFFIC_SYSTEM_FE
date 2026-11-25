@@ -280,6 +280,7 @@ export function renderHeader(currentPath = "/") {
         <a href="/admin" id="nav-admin" data-link ${normPath === "/admin" ? 'aria-current="page"' : ""} ${admin ? "" : "hidden"}>
           Quản trị
         </a>
+        ${logged ? '<button class="nav-mobile-logout" id="nav-mobile-logout" type="button">Đăng xuất</button>' : ""}
       </nav>
     </header>
   `;
@@ -359,7 +360,7 @@ export function initHeaderEvents(navigateTo) {
       return;
     }
 
-    if (accountLogout) {
+    if (accountLogout || e.target.closest("#nav-mobile-logout")) {
       clearSession();
       updateHeaderAuth();
       showToast("Đăng xuất thành công.", "info");
